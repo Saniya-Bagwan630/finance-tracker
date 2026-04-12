@@ -1,0 +1,483 @@
+.insights-page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.insights-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-xl);
+}
+
+.insights-header h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: var(--spacing-xs);
+}
+
+.insights-header p {
+  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+}
+
+/* Week/Month Navigation */
+.week-navigation,
+.month-navigation {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.nav-btn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.nav-btn:hover:not(:disabled) {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+}
+
+.nav-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.week-label,
+.month-label {
+  font-weight: 500;
+  color: var(--color-text-primary);
+  min-width: 160px;
+  text-align: center;
+}
+
+/* Weekly Stats */
+.weekly-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-xl);
+}
+
+.weekly-stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.stat-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.stat-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.stat-amount {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.stat-comparison {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: 0.8125rem;
+}
+
+.stat-comparison.positive {
+  color: var(--color-success);
+}
+
+.stat-comparison.negative {
+  color: var(--color-error);
+}
+
+.stat-comparison.neutral {
+  color: var(--color-text-muted);
+}
+
+/* Insights Grid */
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-lg);
+}
+
+/* Chart Labels */
+.chart-labels,
+.weeks-legend {
+  display: flex;
+  justify-content: space-around;
+  margin-top: var(--spacing-md);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+/* Breakdown List */
+.breakdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-lg);
+}
+
+.breakdown-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.breakdown-color {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-sm);
+}
+
+.breakdown-name {
+  flex: 1;
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+}
+
+.breakdown-amount {
+  font-weight: 500;
+  color: var(--color-text-primary);
+  font-size: 0.875rem;
+}
+
+/* AI Insights */
+.ai-insights-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.ai-insight-item {
+  display: flex;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--color-bg);
+  border-radius: var(--radius-lg);
+}
+
+.insight-icon {
+  font-size: 1.25rem;
+}
+
+.insight-content h4 {
+  font-size: 0.9375rem;
+  margin-bottom: var(--spacing-xs);
+}
+
+.insight-content p {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+/* Top Expenses */
+.top-expenses-placeholder {
+  padding: var(--spacing-lg);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+/* Monthly Overview */
+.monthly-overview {
+  margin-bottom: var(--spacing-xl);
+}
+
+.overview-main-card {
+  padding: var(--spacing-xl);
+}
+
+.overview-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+}
+
+.overview-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.overview-section h3 {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  margin-bottom: var(--spacing-sm);
+}
+
+.overview-amount {
+  font-family: 'Outfit', sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.overview-amount.saved {
+  color: var(--color-accent);
+}
+
+.overview-change {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: 0.8125rem;
+}
+
+.overview-change.positive {
+  color: var(--color-success);
+}
+
+.overview-change.negative {
+  color: var(--color-error);
+}
+
+.overview-change.neutral {
+  color: var(--color-text-muted);
+}
+
+.overview-divider {
+  width: 1px;
+  height: 60px;
+  background: var(--color-border);
+}
+
+/* Distribution Stats */
+.distribution-stats {
+  display: flex;
+  justify-content: space-around;
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.dist-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.dist-label {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.dist-value {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+/* Goals Progress */
+.goals-progress-placeholder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.goal-progress-item {
+  padding: var(--spacing-md);
+  background: var(--color-bg);
+  border-radius: var(--radius-lg);
+}
+
+.goal-progress-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  color: var(--color-text-primary);
+  font-weight: 500;
+  margin-bottom: var(--spacing-sm);
+}
+
+.goal-mini-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.goal-mini-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.goal-mini-fill {
+  height: 100%;
+  background: var(--color-accent);
+}
+
+.goal-mini-percent {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.goals-cta {
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* Monthly Report */
+.monthly-report {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.report-section h4 {
+  font-size: 0.9375rem;
+  margin-bottom: var(--spacing-sm);
+}
+
+.report-section p {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Comparison */
+.comparison-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xl);
+  margin-bottom: var(--spacing-lg);
+}
+
+.comparison-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.comp-label {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.comp-value {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.comparison-vs {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.comparison-bar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.comp-bar-item {
+  height: 8px;
+  background: var(--color-bg);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.comp-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+}
+
+.comp-bar-fill.current {
+  background: var(--color-accent);
+}
+
+.comp-bar-fill.previous {
+  background: var(--color-text-muted);
+}
+
+/* Monthly Grid Extension */
+.monthly-grid {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.trend-chart-card {
+  grid-column: span 2;
+}
+
+.monthly-report-card {
+  grid-column: span 2;
+}
+
+@media (max-width: 1024px) {
+  .weekly-stats {
+    grid-template-columns: 1fr;
+  }
+  
+  .insights-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .monthly-grid .trend-chart-card,
+  .monthly-grid .monthly-report-card {
+    grid-column: span 1;
+  }
+  
+  .overview-main {
+    flex-direction: column;
+    gap: var(--spacing-lg);
+  }
+  
+  .overview-divider {
+    width: 100%;
+    height: 1px;
+  }
+}
+
+@media (max-width: 768px) {
+  .insights-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+  }
+  
+  .header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
