@@ -4,6 +4,25 @@ const validator = require("validator");
 const User = require("../models/User");
 const sendEmail = require("../utils/sendEmail");
 
+const DEFAULT_BUDGET_PERCENTAGES = {
+  food: 0.15,
+  transport: 0.1,
+  shopping: 0.1,
+  entertainment: 0.08,
+  billsUtilities: 0.2,
+  health: 0.07,
+  education: 0.1,
+  other: 0.2,
+};
+
+function buildDefaultBudgets(income) {
+  const budgetIncome = Number(income) || 0;
+  return Object.keys(DEFAULT_BUDGET_PERCENTAGES).reduce((acc, category) => {
+    acc[category] = Math.round(budgetIncome * DEFAULT_BUDGET_PERCENTAGES[category]);
+    return acc;
+  }, {});
+}
+
 async function registerUser(req, res) {
   try {
     const { name, email, password, income } = req.body;
@@ -22,12 +41,14 @@ async function registerUser(req, res) {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const initialBudgets = buildDefaultBudgets(income);
 
     const user = await User.create({
       name,
       email,
       password: hashedPassword,
       income,
+      budgets: initialBudgets,
     });
 
     const token = jwt.sign(
@@ -73,6 +94,7 @@ async function registerUser(req, res) {
         email: user.email,
         streak: { count: 1, lastLogin: new Date() },
         balance: user.balance,
+        budgets: user.budgets,
       },
     });
   } catch (err) {
@@ -135,6 +157,7 @@ async function loginUser(req, res) {
         streak: user.streak,
         balance: user.balance,
         occupation: user.occupation,
+        budgets: user.budgets,
       },
     });
   } catch (err) {

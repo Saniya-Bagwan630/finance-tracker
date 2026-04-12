@@ -11,8 +11,10 @@ app.get("/health", (req, res) => {
   res.json({ status: "OK" });
 });
 const authRoutes = require("./routes/auth.routes");
+const budgetRoutes = require("./routes/budget.routes");
 
 app.use("/auth", authRoutes);
+app.use("/budgets", budgetRoutes);
 const authMiddleware = require("./middleware/auth.middleware");
 
 app.get("/protected-test", authMiddleware, (req, res) => {

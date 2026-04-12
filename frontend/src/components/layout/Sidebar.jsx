@@ -33,6 +33,7 @@ const navItems = [
       { label: 'Add Income', icon: PlusCircle, path: '/income/add' },
       { label: 'History', icon: History, path: '/expenses/history' },
       { label: 'Analytics', icon: PieChart, path: '/expenses/analytics' },
+      { label: 'Budgets', icon: Target, path: '/expenses/budgets' },
     ],
   },
   {

@@ -82,6 +82,12 @@ export const chatAPI = {
   },
 };
 
+// ============ BUDGET APIs ============
+export const budgetsAPI = {
+  get: async () => apiCall('/budgets', { method: 'GET' }),
+  update: async (data) => apiCall('/budgets', { method: 'PUT', body: JSON.stringify(data) }),
+};
+
 // ============ SAVINGS APIs ============
 export const savingsAPI = {
   add: async (data) => {
@@ -93,8 +99,9 @@ export const savingsAPI = {
 export default {
   auth: authAPI,
   expenses: expensesAPI,
-  income: incomeAPI,   
+  income: incomeAPI,
   goals: goalsAPI,
   savings: savingsAPI,
+  budgets: budgetsAPI,
   chat: chatAPI,
 };

@@ -19,6 +19,7 @@ import AddExpensePage from './pages/expenses/AddExpensePage'
 import AddIncomePage from './pages/income/AddIncomePage'
 import ExpenseHistoryPage from './pages/expenses/ExpenseHistoryPage'
 import CategoryAnalyticsPage from './pages/expenses/CategoryAnalyticsPage'
+import BudgetComparisonPage from './pages/expenses/BudgetComparisonPage'
 
 // Goals Pages
 import GoalsListPage from './pages/goals/GoalsListPage'
@@ -63,6 +64,7 @@ function App() {
             <Route path="/income/add" element={<AddIncomePage />} />
             <Route path="/expenses/history" element={<ExpenseHistoryPage />} />
             <Route path="/expenses/analytics" element={<CategoryAnalyticsPage />} />
+            <Route path="/expenses/budgets" element={<BudgetComparisonPage />} />
 
             {/* Goals Routes */}
             <Route path="/goals" element={<GoalsListPage />} />
