@@ -31,7 +31,19 @@ function SignupPage() {
     e.preventDefault()
     setError('')
 
-    // Validation
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const passwordPattern = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/
+
+    if (!emailPattern.test(formData.email)) {
+      setError('Please enter a valid email address')
+      return
+    }
+
+    if (!passwordPattern.test(formData.password)) {
+      setError('Password must be at least 8 characters long and include a letter, a number, and a special character')
+      return
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match')
       return

@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const validator = require("validator");
+const dns = require("dns").promises;
 const User = require("../models/User");
 const sendEmail = require("../utils/sendEmail");
 
@@ -23,6 +24,34 @@ function buildDefaultBudgets(income) {
   }, {});
 }
 
+async function isEmailDomainValid(email) {
+  const domain = email.split("@")[1];
+  if (!domain) return false;
+
+  try {
+    const mx = await dns.resolveMx(domain);
+    if (Array.isArray(mx) && mx.length > 0) return true;
+  } catch (err) {
+    // Domain may still be valid without MX, continue to A/AAAA check
+  }
+
+  try {
+    const aRecords = await dns.resolve4(domain);
+    if (Array.isArray(aRecords) && aRecords.length > 0) return true;
+  } catch (err) {
+    // ignore
+  }
+
+  try {
+    const aaaaRecords = await dns.resolve6(domain);
+    if (Array.isArray(aaaaRecords) && aaaaRecords.length > 0) return true;
+  } catch (err) {
+    // ignore
+  }
+
+  return false;
+}
+
 async function registerUser(req, res) {
   try {
     const { name, email, password, income } = req.body;
@@ -33,6 +62,18 @@ async function registerUser(req, res) {
 
     if (!validator.isEmail(email)) {
       return res.status(400).json({ success: false, message: "Invalid email address" });
+    }
+
+    if (!await isEmailDomainValid(email)) {
+      return res.status(400).json({ success: false, message: "Email domain is not valid or cannot receive mail" });
+    }
+
+    const passwordPattern = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
+    if (!passwordPattern.test(password)) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 8 characters and include at least one letter, one number, and one special character",
+      });
     }
 
     const existingUser = await User.findOne({ email });
