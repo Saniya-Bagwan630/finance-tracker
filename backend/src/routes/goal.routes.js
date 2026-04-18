@@ -4,6 +4,49 @@ const Saving = require("../models/Saving");
 const authMiddleware = require("../middleware/auth.middleware");
 
 const router = express.Router();
+const VALID_FREQUENCIES = ["daily", "weekly", "monthly"];
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function startOfToday() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+}
+
+function getGoalValidationError({ target_amount, deadline, saving_frequency }) {
+  const targetAmount = Number(target_amount);
+  if (!Number.isFinite(targetAmount) || targetAmount <= 0) {
+    return "Target amount must be greater than 0";
+  }
+
+  if (!VALID_FREQUENCIES.includes(saving_frequency)) {
+    return "Invalid saving frequency";
+  }
+
+  const parsedDeadline = new Date(deadline);
+  if (Number.isNaN(parsedDeadline.getTime())) {
+    return "Invalid deadline";
+  }
+
+  parsedDeadline.setHours(0, 0, 0, 0);
+
+  const today = startOfToday();
+  if (parsedDeadline < today) {
+    return "Deadline cannot be in the past";
+  }
+
+  const diffInDays = Math.ceil((parsedDeadline.getTime() - today.getTime()) / MS_PER_DAY);
+
+  if (diffInDays <= 7 && ["weekly", "monthly"].includes(saving_frequency)) {
+    return "For deadlines within 7 days, only daily saving frequency is allowed";
+  }
+
+  if (diffInDays <= 31 && saving_frequency === "monthly") {
+    return "Monthly saving frequency is only allowed when the deadline is more than 1 month away";
+  }
+
+  return null;
+}
 
 /**
  * POST /goals/create
@@ -19,17 +62,27 @@ router.post("/create", authMiddleware, async (req, res) => {
       });
     }
 
-    if (!["daily", "weekly"].includes(saving_frequency)) {
+    const validationError = getGoalValidationError({
+      target_amount,
+      deadline,
+      saving_frequency
+    });
+
+    if (validationError) {
       return res.status(400).json({
         success: false,
-        message: "Invalid saving frequency"
+        message: validationError
       });
     }
 
+    const normalizedDeadline = new Date(deadline);
+    normalizedDeadline.setHours(0, 0, 0, 0);
+
     const goal = await Goal.create({
       user_id: req.user.id,
-      target_amount,
-      deadline,
+      target_amount: Number(target_amount),
+      saved_amount: 0,
+      deadline: normalizedDeadline,
       saving_frequency
     });
 

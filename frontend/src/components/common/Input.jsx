@@ -41,7 +41,14 @@ function Select({ label, options = [], value, onChange, className = '', ...props
         {...props}
       >
         {options.map(opt => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
+          <option
+            key={opt.value}
+            value={opt.value}
+            disabled={opt.disabled}
+            title={opt.title}
+          >
+            {opt.label}
+          </option>
         ))}
       </select>
     </div>
