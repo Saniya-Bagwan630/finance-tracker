@@ -4,6 +4,7 @@ const { startGoalScheduler } = require("./utils/goalScheduler");
 
 const PORT = process.env.PORT || 5000;
 
+// ===== GLOBAL ERROR HANDLING =====
 process.on("unhandledRejection", (error) => {
   console.error("Unhandled rejection:", error.message);
 });
@@ -13,6 +14,7 @@ process.on("uncaughtException", (error) => {
   process.exit(1);
 });
 
+// ===== START SERVER =====
 async function startServer() {
   try {
     if (!process.env.JWT_SECRET) {

@@ -2,77 +2,79 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
-require("dotenv").config({ quiet: true });
+require("dotenv").config();
+
 const { notFoundHandler, errorHandler } = require("./middleware/error.middleware");
 
 const app = express();
 
-const allowedOrigins = (process.env.FRONTEND_URL || "")
-  .split(",")
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+// ===== CORS SETUP =====
+const allowedOrigins = [
+  "http://localhost:5173", // local frontend
+  process.env.FRONTEND_URL // deployed frontend
+].filter(Boolean);
 
 const corsOptions = {
-  origin(origin, callback) {
-    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
-      return callback(null, true);
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
     }
-
-    const error = new Error("CORS origin not allowed");
-    error.statusCode = 403;
-    return callback(error);
   },
   credentials: true,
 };
 
+// 🔥 IMPORTANT: handle CORS + preflight
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
+
+// ===== SECURITY =====
+app.use(helmet());
+
+// ===== RATE LIMIT =====
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: Number(process.env.RATE_LIMIT_MAX || 300),
   standardHeaders: true,
   legacyHeaders: false,
-  message: {
-    success: false,
-    message: "Too many requests. Please try again later.",
-  },
 });
-
-app.use(helmet());
-app.use(cors(corsOptions));
 app.use(apiLimiter);
+
+// ===== BODY PARSER =====
 app.use(express.json());
 
+// ===== HEALTH CHECK =====
 app.get("/health", (req, res) => {
   res.json({ status: "OK" });
 });
+
+// ===== ROUTES =====
 const authRoutes = require("./routes/auth.routes");
 const budgetRoutes = require("./routes/budget.routes");
+const expenseRoutes = require("./routes/expense.routes");
+const goalRoutes = require("./routes/goal.routes");
+const savingsRoutes = require("./routes/savings.routes");
+const chatRoutes = require("./routes/chat.routes");
+const dashboardRoutes = require("./routes/dashboard.routes");
+const incomeRoutes = require("./routes/income.routes");
 
 app.use("/auth", authRoutes);
 app.use("/budgets", budgetRoutes);
-const authMiddleware = require("./middleware/auth.middleware");
+app.use("/expenses", expenseRoutes);
+app.use("/goals", goalRoutes);
+app.use("/savings", savingsRoutes);
+app.use("/chat", chatRoutes);
+app.use("/dashboard", dashboardRoutes);
+app.use("/income", incomeRoutes);
 
+// ===== TEST PROTECTED ROUTE =====
+const authMiddleware = require("./middleware/auth.middleware");
 app.get("/protected-test", authMiddleware, (req, res) => {
   res.json({ success: true, userId: req.user.id });
 });
 
-const expenseRoutes = require("./routes/expense.routes");
-app.use("/expenses", expenseRoutes);
-
-const goalRoutes = require("./routes/goal.routes");
-app.use("/goals", goalRoutes);
-
-const savingsRoutes = require("./routes/savings.routes");
-app.use("/savings", savingsRoutes);
-
-const chatRoutes = require("./routes/chat.routes");
-app.use("/chat", chatRoutes);
-
-const dashboardRoutes = require("./routes/dashboard.routes");
-app.use("/dashboard", dashboardRoutes);
-
-const incomeRoutes = require("./routes/income.routes");
-app.use("/income", incomeRoutes);
-
+// ===== ERROR HANDLING =====
 app.use(notFoundHandler);
 app.use(errorHandler);
 
