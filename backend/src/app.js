@@ -29,7 +29,10 @@ const corsOptions = {
 };
 
 // 🔥 IMPORTANT: handle CORS + preflight
-app.use(cors(corsOptions));
+app.use(cors({
+  origin: true,       // reflect the request origin
+  credentials: true,
+}));
 app.options("/*", cors(corsOptions));
 
 // ===== SECURITY =====
