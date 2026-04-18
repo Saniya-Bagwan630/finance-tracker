@@ -13,10 +13,13 @@ const allowedOrigins = [
   "http://localhost:5173", // local frontend
   process.env.FRONTEND_URL // deployed frontend
 ].filter(Boolean);
-
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (
+      !origin ||
+      origin.includes(".vercel.app") ||
+      origin === "http://localhost:5173"
+    ) {
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS"));
@@ -27,7 +30,7 @@ const corsOptions = {
 
 // 🔥 IMPORTANT: handle CORS + preflight
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
+app.options("/*", cors(corsOptions));
 
 // ===== SECURITY =====
 app.use(helmet());
