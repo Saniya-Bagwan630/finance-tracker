@@ -34,7 +34,6 @@ export function ChatProvider({ children }) {
           });
           addMessage(`✅ Expense of ₹${amount} added under ${category.charAt(0).toUpperCase() + category.slice(1)}!`, "bot");
         } catch (err) {
-          console.error("ADD_EXPENSE error:", err);
           addMessage("❌ Couldn't add the expense. Please try again.", "bot");
         }
         break;
@@ -51,7 +50,6 @@ export function ChatProvider({ children }) {
           });
           addMessage(`✅ Income of ₹${amount} from ${source} logged successfully!`, "bot");
         } catch (err) {
-          console.error("ADD_INCOME error:", err);
           addMessage("❌ Couldn't log the income. Please try again.", "bot");
         }
         break;
@@ -110,7 +108,6 @@ export function ChatProvider({ children }) {
       await handleAction(action, botText);
 
     } catch (error) {
-      console.error("💥 SEND MESSAGE ERROR:", error);
       addMessage("Something went wrong. Please try again.", "bot");
     } finally {
       setIsLoading(false);

@@ -11,7 +11,7 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/common/Card'
 import Button from '../../components/common/Button'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
-import api from '../../services/api'
+import api, { dashboardAPI } from '../../services/api'
 import './InsightPages.css'
 
 const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#ef4444'];
@@ -20,6 +20,7 @@ function MonthlyInsightsPage() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [chartData, setChartData] = useState([])
+  const [error, setError] = useState('')
 
   useEffect(() => {
     fetchInsights()
@@ -28,6 +29,7 @@ function MonthlyInsightsPage() {
   const fetchInsights = async () => {
     try {
       setLoading(true)
+      setError('')
       const response = await api.expenses.summary()
       // response format: { success, weekly_total, monthly_total, by_category }
       if (response.success) {
@@ -41,10 +43,7 @@ function MonthlyInsightsPage() {
         }
 
         // Fetch Total Saved (Income + Goals)
-        const dashSumRes = await fetch('http://localhost:5000/dashboard/summary', {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        });
-        const dashSum = await dashSumRes.json();
+        const dashSum = await dashboardAPI.summary()
 
         setData(prev => ({
           ...prev,
@@ -52,7 +51,7 @@ function MonthlyInsightsPage() {
         }));
       }
     } catch (error) {
-      console.error("Failed to fetch insights", error)
+      setError(error.message || 'Unable to load monthly insights right now.')
     } finally {
       setLoading(false)
     }
@@ -117,6 +116,8 @@ function MonthlyInsightsPage() {
           </Button>
         </div>
       </div>
+
+      {error && <div className="form-error">{error}</div>}
 
       {/* Monthly Overview */}
       <div className="monthly-overview">

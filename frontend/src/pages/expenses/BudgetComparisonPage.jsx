@@ -62,7 +62,6 @@ function BudgetComparisonPage() {
 
       setBudgetData(transformed)
     } catch (err) {
-      console.error('Budget comparison error:', err)
       setError('Failed to load budget comparison data. Please try again.')
     } finally {
       setLoading(false)

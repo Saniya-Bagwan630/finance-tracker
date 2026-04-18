@@ -10,13 +10,14 @@ import {
 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/common/Card'
 import { BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
-import { expensesAPI } from '../../services/api'
+import { dashboardAPI, expensesAPI } from '../../services/api'
 import './InsightPages.css'
 
 const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444'];
 
 function WeeklySummaryPage() {
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [data, setData] = useState({
     totalSpent: 0,
     dailySpending: [],
@@ -43,16 +44,14 @@ function WeeklySummaryPage() {
 
   const fetchWeeklyData = async () => {
     setLoading(true)
+    setError('')
     try {
       // Simulation of weekly fetch or using available APIs
       // In a real app, pass ?startDate=${...}&endDate=${...}
       const summary = await expensesAPI.summary()
       const expenses = await expensesAPI.list()
       // Fetch Dashboard Summary for Total Saved
-      const dashSumRes = await fetch('http://localhost:5000/dashboard/summary', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-      const dashSum = await dashSumRes.json();
+      const dashSum = await dashboardAPI.summary()
 
       // Process for chart (mocking weekly filtering mostly, as backend is simple)
       const dailyData = [
@@ -95,7 +94,7 @@ function WeeklySummaryPage() {
       })
 
     } catch (err) {
-      console.error(err)
+      setError(err.message || 'Unable to load weekly insights right now.')
     } finally {
       setLoading(false)
     }
@@ -134,6 +133,8 @@ function WeeklySummaryPage() {
           </button>
         </div>
       </div>
+
+      {error && <div className="form-error">{error}</div>}
 
       {/* Weekly Stats */}
       <div className="weekly-stats">

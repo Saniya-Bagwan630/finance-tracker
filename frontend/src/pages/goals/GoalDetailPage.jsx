@@ -29,12 +29,14 @@ function GoalDetailPage() {
   const { id } = useParams()
   const [goalData, setGoalData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [showAddSavings, setShowAddSavings] = useState(false)
   const [amount, setAmount] = useState('')
 
   const fetchGoalData = async () => {
     try {
       setLoading(true)
+      setError('')
       const data = await api.goals.progress(id)
       const listData = await api.goals.list()
       const goalMeta = (listData.goals || listData || []).find((goal) => goal._id === id)
@@ -43,7 +45,7 @@ function GoalDetailPage() {
         ...data,
       })
     } catch (error) {
-      console.error('Failed to fetch goal', error)
+      setError(error.message || 'Failed to load goal details.')
     } finally {
       setLoading(false)
     }
@@ -67,8 +69,7 @@ function GoalDetailPage() {
       setShowAddSavings(false)
       fetchGoalData()
     } catch (error) {
-      console.error('Failed to add savings', error)
-      alert('Failed to add savings. Please try again.')
+      setError(error.message || 'Failed to add savings. Please try again.')
     }
   }
 
@@ -89,6 +90,8 @@ function GoalDetailPage() {
         <ArrowLeft size={20} />
         <span>Back to Goals</span>
       </Link>
+
+      {error && <div className="form-error">{error}</div>}
 
       <div className="goal-detail-header">
         <div className="goal-title-section">

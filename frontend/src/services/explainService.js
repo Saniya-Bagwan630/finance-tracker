@@ -4,13 +4,6 @@
 
 const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY; // From .env file
 
-// 🔍 DEBUG: Check if API key is loaded
-console.log("🔑 OpenAI API Key status:", {
-  exists: !!OPENAI_API_KEY,
-  length: OPENAI_API_KEY ? OPENAI_API_KEY.length : 0,
-  firstChars: OPENAI_API_KEY ? OPENAI_API_KEY.substring(0, 7) + "..." : "NOT LOADED"
-});
-
 // Fallback explanations (used when OpenAI fails or is not configured)
 const fallbackExplanations = {
   // Budget & Planning
@@ -83,28 +76,17 @@ export async function explainConcept(topic) {
 
   const searchTerm = topic.toLowerCase().trim();
 
-  console.log("🔍 Explain request for:", searchTerm);
-  console.log("🔑 API Key available:", !!OPENAI_API_KEY);
-
   // Try OpenAI first (if API key is configured)
   if (OPENAI_API_KEY && OPENAI_API_KEY !== 'your_openai_api_key_here') {
-    console.log("🤖 Attempting OpenAI call...");
     try {
       const explanation = await getOpenAIExplanation(searchTerm);
-      console.log("✅ OpenAI response received!");
       return `💡 ${explanation}`;
     } catch (error) {
-      console.error("❌ OpenAI failed:", error.message);
-      console.error("Full error:", error);
       // Fall through to fallback explanations
     }
-  } else {
-    console.log("⚠️ OpenAI API key not configured, using fallback");
   }
 
   // Fallback: Use predefined explanations
-  console.log("📚 Using fallback explanations");
-  
   // Direct match
   if (fallbackExplanations[searchTerm]) {
     return `💡 **${capitalizeFirst(searchTerm)}**: ${fallbackExplanations[searchTerm]}`;
@@ -125,8 +107,6 @@ export async function explainConcept(topic) {
  * Gets explanation from OpenAI
  */
 async function getOpenAIExplanation(topic) {
-  console.log("🌐 Making OpenAI API request...");
-  
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -161,23 +141,17 @@ Your job is to EXPLAIN concepts, not advise on money decisions.`
     })
   });
 
-  console.log("📡 OpenAI response status:", response.status);
-
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    console.error("❌ OpenAI error response:", error);
     throw new Error(error.error?.message || `API failed with status ${response.status}`);
   }
 
   const data = await response.json();
-  console.log("📦 OpenAI data received:", data);
-  
   const explanation = data.choices[0].message.content.trim();
 
   // Safety check
   const dangerousWords = ['you should', 'i recommend', 'invest in', 'buy', 'sell'];
   if (dangerousWords.some(word => explanation.toLowerCase().includes(word))) {
-    console.warn("⚠️ OpenAI response contained advice, rejecting");
     throw new Error("Response contained advice");
   }
 

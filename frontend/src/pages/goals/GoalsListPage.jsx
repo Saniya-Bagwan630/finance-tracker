@@ -128,7 +128,6 @@ function GoalsListPage() {
       setShowAddSavings(false)
       fetchGoals()
     } catch (error) {
-      console.error('Failed to add savings', error)
       alert(error.message || 'Failed to add savings.')
     }
   }
@@ -155,7 +154,6 @@ function GoalsListPage() {
               saved_so_far: progress.saved_so_far,
             }
           } catch (progressError) {
-            console.error('Failed to load progress for goal', goal._id, progressError)
             return goal
           }
         })

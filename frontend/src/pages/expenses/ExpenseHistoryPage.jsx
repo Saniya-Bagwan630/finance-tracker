@@ -19,7 +19,7 @@ import { Card } from '../../components/common/Card'
 import { Input, Select } from '../../components/common/Input'
 import Button from '../../components/common/Button'
 import EmptyState from '../../components/common/EmptyState'
-import { expensesAPI } from '../../services/api'
+import { expensesAPI, incomeAPI } from '../../services/api'
 import './ExpensePages.css'
 
 const categoryIcons = {
@@ -67,12 +67,9 @@ function ExpenseHistoryPage() {
     setIsLoading(true)
     setError('')
     try {
-      const token = localStorage.getItem('token');
       const [expRes, incRes] = await Promise.all([
         expensesAPI.list().catch(() => ({ expenses: [] })),
-        fetch('http://localhost:5000/income/list', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }).then(res => res.json()).catch(() => ({ incomes: [] }))
+        incomeAPI.list().catch(() => ({ incomes: [] }))
       ])
 
       const expList = (expRes.expenses || expRes || []).map(e => ({ ...e, type: 'expense' }));

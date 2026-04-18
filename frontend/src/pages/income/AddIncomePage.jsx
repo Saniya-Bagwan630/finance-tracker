@@ -8,8 +8,7 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/common/Card'
 import { Input, Select, Textarea } from '../../components/common/Input'
 import Button from '../../components/common/Button'
-import { expensesAPI } from '../../services/api' // We need to ensure api.js has income methods or add them
-import api from '../../services/api' // Use the default export if that's where income is
+import { incomeAPI } from '../../services/api'
 import '../expenses/ExpensePages.css'
 
 const sourceOptions = [
@@ -56,27 +55,13 @@ function AddIncomePage() {
         setIsLoading(true)
 
         try {
-            // Assuming api.income.add exists or similar
-            const response = await fetch('http://localhost:5000/income/add', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify({
-                    amount: Number(formData.amount),
-                    source: formData.source || 'Other',
-                    paymentMethod: formData.paymentMethod,
-                    description: formData.description,
-                    date: formData.date
-                })
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to add income');
-            }
+            await incomeAPI.add({
+                amount: Number(formData.amount),
+                source: formData.source || 'Other',
+                paymentMethod: formData.paymentMethod,
+                description: formData.description,
+                date: formData.date
+            })
 
             setSuccess('Income added successfully!')
             setFormData({
@@ -91,7 +76,6 @@ function AddIncomePage() {
                 navigate('/dashboard')
             }, 1500)
         } catch (err) {
-            console.error(err)
             setError(err.message || 'Failed to add income. Please try again.')
         } finally {
             setIsLoading(false)

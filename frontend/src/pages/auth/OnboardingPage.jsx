@@ -30,7 +30,6 @@ function OnboardingPage() {
         })
         navigate('/dashboard')
       } catch (err) {
-        console.error("Failed to save profile", err)
         // Navigate anyway or show error? Navigate for now to avoid blocking
         navigate('/dashboard')
       }

@@ -18,7 +18,7 @@ import {
 import { Link, useNavigate } from 'react-router-dom'
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/common/Card'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
-import { expensesAPI, goalsAPI } from '../../services/api'
+import { dashboardAPI, expensesAPI, goalsAPI } from '../../services/api'
 import './DashboardPage.css'
 
 const categoryIcons = {
@@ -61,10 +61,7 @@ function DashboardPage() {
         expensesAPI.list().catch(() => ({ expenses: [] })),
       ])
 
-      const dashboardRes = await fetch('http://localhost:5000/dashboard/summary', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-      const dashboardData = await dashboardRes.json();
+      const dashboardData = await dashboardAPI.summary()
 
       setBalance(dashboardData.balance || { account: 0, cash: 0 })
       setSummary(summaryData)

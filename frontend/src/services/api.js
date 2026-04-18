@@ -1,6 +1,7 @@
-const API_BASE_URL = 'http://localhost:5000';
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
 
 const getToken = () => localStorage.getItem('token');
+export const getApiBaseUrl = () => API_BASE_URL;
 
 const apiCall = async (endpoint, options = {}) => {
   const token = getToken();
@@ -14,8 +15,15 @@ const apiCall = async (endpoint, options = {}) => {
     },
   };
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-  const data = await response.json().catch(() => ({}));
+  let response;
+  let data = {};
+
+  try {
+    response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+    data = await response.json().catch(() => ({}));
+  } catch (networkError) {
+    throw new Error('Unable to connect to the server. Please try again in a moment.');
+  }
 
   if (response.status === 401) {
     localStorage.removeItem('token');
@@ -88,6 +96,10 @@ export const budgetsAPI = {
   update: async (data) => apiCall('/budgets', { method: 'PUT', body: JSON.stringify(data) }),
 };
 
+export const dashboardAPI = {
+  summary: async () => apiCall('/dashboard/summary', { method: 'GET' }),
+};
+
 // ============ SAVINGS APIs ============
 export const savingsAPI = {
   add: async (data) => {
@@ -103,5 +115,6 @@ export default {
   goals: goalsAPI,
   savings: savingsAPI,
   budgets: budgetsAPI,
+  dashboard: dashboardAPI,
   chat: chatAPI,
 };
