@@ -153,10 +153,19 @@
 }
 
 .tip-number {
-  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-strong));
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));
   color: #fff;
   font-size: 0.88rem;
   box-shadow: 0 12px 24px rgba(16, 185, 129, 0.18);
+}
+
+.tip-number svg {
+  width: 20px;
+  height: 20px;
+  color: #fff;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2.4;
 }
 
 .tip-content h4,

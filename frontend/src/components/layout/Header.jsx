@@ -1,6 +1,5 @@
 import { Menu, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import BrandLogo from './BrandLogo';
 import './Header.css';
 
 function Header({ title, onMenuClick }) {
@@ -17,21 +16,14 @@ function Header({ title, onMenuClick }) {
         <button className="menu-btn" onClick={onMenuClick}>
           <Menu size={24} />
         </button>
-        <div className="header-title-group">
-          <BrandLogo compact />
-          <div className="header-copy">
-            <h1 className="page-title">{title}</h1>
-            {isAuthenticated && <p className="page-greeting">Welcome back, {firstName}</p>}
-          </div>
+        <div className="header-copy">
+          <h1 className="page-title">{title}</h1>
+          {isAuthenticated && <p className="page-greeting">Welcome back, {firstName}</p>}
         </div>
       </div>
 
       {isAuthenticated && (
         <div className="header-right">
-          <div className="header-user-pill">
-            <span className="header-user-pill__avatar">{firstName.charAt(0).toUpperCase()}</span>
-            <span className="header-user-pill__name">{user?.name || 'User'}</span>
-          </div>
           <button className="logout-btn" onClick={handleLogout}>
             <LogOut size={18} />
             <span>Logout</span>

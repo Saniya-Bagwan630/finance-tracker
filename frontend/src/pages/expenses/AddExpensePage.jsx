@@ -4,6 +4,9 @@ import {
   IndianRupee, 
   Calendar, 
   FileText,
+  BadgeCheck,
+  Tags,
+  Clock3,
 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/common/Card'
 import { Input, Select, Textarea } from '../../components/common/Input'
@@ -168,21 +171,27 @@ function AddExpensePage() {
           <CardContent>
             <div className="tips-list">
               <div className="tip-item">
-                <div className="tip-number">1</div>
+                <div className="tip-number" aria-hidden="true">
+                  <BadgeCheck size={20} />
+                </div>
                 <div className="tip-content">
                   <h4>Be Accurate</h4>
                   <p>Enter the exact amount spent for better tracking.</p>
                 </div>
               </div>
               <div className="tip-item">
-                <div className="tip-number">2</div>
+                <div className="tip-number" aria-hidden="true">
+                  <Tags size={20} />
+                </div>
                 <div className="tip-content">
                   <h4>Use Categories</h4>
                   <p>Proper categorization helps track spending patterns.</p>
                 </div>
               </div>
               <div className="tip-item">
-                <div className="tip-number">3</div>
+                <div className="tip-number" aria-hidden="true">
+                  <Clock3 size={20} />
+                </div>
                 <div className="tip-content">
                   <h4>Track Daily</h4>
                   <p>Log expenses daily for accurate monthly summaries.</p>
