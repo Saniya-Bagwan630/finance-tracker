@@ -73,7 +73,7 @@ async function getBudgets(req, res) {
       margin: user.budget_margin
     });
   } catch (err) {
-    console.error("Get budgets error:", err);
+    console.error("Get budgets error:", err.message);
     res.status(500).json({ success: false, message: "Server error" });
   }
 }
@@ -117,7 +117,7 @@ async function updateBudgets(req, res) {
       margin: user.budget_margin
     });
   } catch (err) {
-    console.error("Update budgets error:", err);
+    console.error("Update budgets error:", err.message);
     res.status(500).json({ success: false, message: "Server error" });
   }
 }

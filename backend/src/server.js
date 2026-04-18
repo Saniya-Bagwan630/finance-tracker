@@ -4,13 +4,31 @@ const { startGoalScheduler } = require("./utils/goalScheduler");
 
 const PORT = process.env.PORT || 5000;
 
-async function startServer() {
-  await connectDB();
-  startGoalScheduler();
+process.on("unhandledRejection", (error) => {
+  console.error("Unhandled rejection:", error.message);
+});
 
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught exception:", error.message);
+  process.exit(1);
+});
+
+async function startServer() {
+  try {
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET is not configured");
+    }
+
+    await connectDB();
+    startGoalScheduler();
+
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Server startup failed:", error.message);
+    process.exit(1);
+  }
 }
 
 startServer();

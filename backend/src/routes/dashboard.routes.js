@@ -69,7 +69,7 @@ router.get("/summary", authMiddleware, async (req, res) => {
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("Dashboard summary error:", error.message);
     return res.status(500).json({
       success: false,
       message: "Server error"

@@ -16,6 +16,10 @@ async function sendEmail({ to, subject, html, text }) {
   }
 
   try {
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      return null;
+    }
+
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to,
@@ -25,10 +29,9 @@ async function sendEmail({ to, subject, html, text }) {
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log(`Email sent to ${to}: ${info.messageId}`);
     return info;
   } catch (error) {
-    console.error(`Failed to send email to ${to}:`, error);
+    console.error("Email send failed:", error.message);
     throw error;
   }
 }

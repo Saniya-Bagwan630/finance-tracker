@@ -127,7 +127,7 @@ router.post("/add", authMiddleware, async (req, res) => {
       goal: updatedGoal,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Add savings error:", error.message);
     return res.status(500).json({
       success: false,
       message: "Server error",
@@ -144,6 +144,7 @@ router.get("/list", authMiddleware, async (req, res) => {
       savings,
     });
   } catch (error) {
+    console.error("List savings error:", error.message);
     return res.status(500).json({
       success: false,
       message: "Server error",

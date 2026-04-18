@@ -58,8 +58,7 @@ router.post("/add", authMiddleware, async (req, res) => {
 
     if (budgetAmount > 0 && priorTotal <= budgetAmount && newTotal > budgetAmount) {
       sendBudgetOverrunNotification(user, categoryLabel, budgetAmount, newTotal)
-        .then(() => console.log(`Budget overrun email sent for ${user.email} (${categoryLabel})`))
-        .catch((sendError) => console.error(`Failed to send budget overrun email to ${user.email}:`, sendError));
+        .catch((sendError) => console.error("Budget overrun email failed:", sendError.message));
     }
 
     // Update User Balance
@@ -73,6 +72,7 @@ router.post("/add", authMiddleware, async (req, res) => {
       expense
     });
   } catch (err) {
+    console.error("Add expense error:", err.message);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
@@ -89,6 +89,7 @@ router.get("/list", authMiddleware, async (req, res) => {
       expenses
     });
   } catch (err) {
+    console.error("List expenses error:", err.message);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
@@ -131,7 +132,7 @@ router.get("/summary", authMiddleware, async (req, res) => {
       by_category: byCategory
     });
   } catch (err) {
-    console.error(err);
+    console.error("Expense summary error:", err.message);
     res.status(500).json({
       success: false,
       message: "Server error"

@@ -50,7 +50,7 @@ async function runGoalChecks() {
           await sendGoalMissReminderEmail(user, goal, actualSaved, expectedPerPeriod);
           goal.lastMissedReminderSentAt = new Date();
         } catch (error) {
-          console.error(`Goal miss reminder failed for ${goal._id}:`, error);
+      console.error(`Goal miss reminder failed for ${goal._id}:`, error.message);
         }
       }
     }
@@ -66,7 +66,7 @@ async function runGoalChecks() {
           await sendDeadlineApproachingEmail(user, goal, goal.saved_amount || 0);
           goal.lastDeadlineReminderSentAt = new Date();
         } catch (error) {
-          console.error(`Deadline reminder failed for ${goal._id}:`, error);
+      console.error(`Deadline reminder failed for ${goal._id}:`, error.message);
         }
       }
     }
@@ -76,7 +76,7 @@ async function runGoalChecks() {
         await sendDeadlineResultEmail(user, goal, goal.saved_amount || 0);
         goal.deadlineResultSentAt = new Date();
       } catch (error) {
-        console.error(`Deadline result email failed for ${goal._id}:`, error);
+      console.error(`Deadline result email failed for ${goal._id}:`, error.message);
       }
     }
 
@@ -103,7 +103,7 @@ function startGoalScheduler() {
       try {
         await runGoalChecks();
       } catch (error) {
-        console.error("Goal scheduler failed:", error);
+    console.error("Goal scheduler failed:", error.message);
       } finally {
         scheduleNextRun();
       }

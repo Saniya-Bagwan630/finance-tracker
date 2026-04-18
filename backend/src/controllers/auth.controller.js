@@ -123,9 +123,9 @@ async function registerUser(req, res) {
             `Happy budgeting!\nFinance Tracker Team`,
     };
 
-    sendEmail(emailPayload)
-      .then(() => console.log(`Welcome email queued for ${user.email}`))
-      .catch((sendError) => console.error(`Welcome email failed for ${user.email}:`, sendError));
+    sendEmail(emailPayload).catch((sendError) => {
+      console.error("Welcome email failed:", sendError.message);
+    });
 
     res.status(201).json({
       success: true,
@@ -141,7 +141,7 @@ async function registerUser(req, res) {
       },
     });
   } catch (err) {
-    console.error("Registration error:", err);
+    console.error("Registration error:", err.message);
     res.status(500).json({ success: false, message: "Server error" });
   }
 }
@@ -204,7 +204,7 @@ async function loginUser(req, res) {
       },
     });
   } catch (err) {
-    console.error("Login error:", err);
+    console.error("Login error:", err.message);
     res.status(500).json({ success: false, message: "Server error" });
   }
 }
@@ -219,7 +219,7 @@ async function updateUser(req, res) {
     );
     res.json({ success: true, user });
   } catch (err) {
-    console.error("Update profile error:", err);
+    console.error("Update profile error:", err.message);
     res.status(500).json({ success: false, message: "Server error" });
   }
 }

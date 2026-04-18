@@ -114,8 +114,7 @@ router.post("/create", authMiddleware, async (req, res) => {
     });
 
     sendGoalCreationEmail(user, goal)
-      .then(() => console.log(`Goal creation email queued for ${user.email}`))
-      .catch((sendError) => console.error(`Goal creation email failed for ${user.email}:`, sendError));
+      .catch((sendError) => console.error("Goal creation email failed:", sendError.message));
 
     return res.status(201).json({
       success: true,
@@ -123,7 +122,7 @@ router.post("/create", authMiddleware, async (req, res) => {
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("Create goal error:", error.message);
     return res.status(500).json({
       success: false,
       message: "Server error"
@@ -211,7 +210,7 @@ router.get("/progress", authMiddleware, async (req, res) => {
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("Goal progress error:", error.message);
     return res.status(500).json({
       success: false,
       message: "Server error"

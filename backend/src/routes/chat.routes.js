@@ -124,8 +124,6 @@ router.post("/messages", authMiddleware, async (req, res) => {
 );
         const rawText = result.response.text();
 
-        console.log("Gemini raw response:", rawText);
-
         const jsonStr = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
 
         try {
@@ -185,15 +183,14 @@ botResponseText = `Here's where your money is going:\n\n${breakdown}\n\n💡 You
 botAction = { type: "NAVIGATE", target: "/insights/monthly" };
             }
           } catch (analyzeErr) {
-            console.error("ANALYZE_SPENDING error:", analyzeErr);
+            console.error("ANALYZE_SPENDING error:", analyzeErr.message);
             botResponseText = "I couldn't fetch your spending data right now. Please try again.";
             botAction = null;
           }
         }
 
       } catch (aiError) {
-        console.error("AI Generation Error:", aiError.message);
-        console.error("Full AI error:", JSON.stringify(aiError, null, 2));
+        console.error("AI generation error:", aiError.message);
         botResponseText = "I couldn't process that request fully, but I'm listening.";
       }
     } else {
@@ -224,7 +221,7 @@ botAction = { type: "NAVIGATE", target: "/insights/monthly" };
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("Chat message route error:", error.message);
     return res.status(500).json({ success: false, message: "Server error" });
   }
 });
@@ -241,7 +238,7 @@ router.get("/messages", authMiddleware, async (req, res) => {
 
     return res.json({ success: true, messages });
   } catch (error) {
-    console.error(error);
+    console.error("Chat history route error:", error.message);
     return res.status(500).json({ success: false, message: "Server error" });
   }
 });

@@ -37,7 +37,7 @@ router.post("/add", authMiddleware, async (req, res) => {
             income
         });
     } catch (error) {
-        console.error(error);
+        console.error("Add income error:", error.message);
         res.status(500).json({ success: false, message: "Server error" });
     }
 });
@@ -51,6 +51,7 @@ router.get("/list", authMiddleware, async (req, res) => {
         const incomes = await Income.find({ user_id: req.user.id }).sort({ date: -1 });
         res.json({ success: true, incomes });
     } catch (error) {
+        console.error("List income error:", error.message);
         res.status(500).json({ success: false, message: "Server error" });
     }
 });
