@@ -1,15 +1,14 @@
 import { Menu, LogOut } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import BrandLogo from './BrandLogo';
 import './Header.css';
 
 function Header({ title, onMenuClick }) {
-  const { logout, isAuthenticated } = useAuth();
-  const navigate = useNavigate();
+  const { logout, isAuthenticated, user } = useAuth();
+  const firstName = user?.name?.split(' ')[0] || 'there';
 
   const handleLogout = () => {
-    logout();          // clears token + auth state
-    navigate('/login'); // safety redirect
+    logout();
   };
 
   return (
@@ -18,11 +17,21 @@ function Header({ title, onMenuClick }) {
         <button className="menu-btn" onClick={onMenuClick}>
           <Menu size={24} />
         </button>
-        <h1 className="page-title">{title}</h1>
+        <div className="header-title-group">
+          <BrandLogo compact />
+          <div className="header-copy">
+            <h1 className="page-title">{title}</h1>
+            {isAuthenticated && <p className="page-greeting">Welcome back, {firstName}</p>}
+          </div>
+        </div>
       </div>
 
       {isAuthenticated && (
         <div className="header-right">
+          <div className="header-user-pill">
+            <span className="header-user-pill__avatar">{firstName.charAt(0).toUpperCase()}</span>
+            <span className="header-user-pill__name">{user?.name || 'User'}</span>
+          </div>
           <button className="logout-btn" onClick={handleLogout}>
             <LogOut size={18} />
             <span>Logout</span>

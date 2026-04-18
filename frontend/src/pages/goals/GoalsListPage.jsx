@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import {
   Target,
   Plus,
   TrendingUp,
   Calendar,
   X,
-  IndianRupee
+  Flame
 } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardContent } from '../../components/common/Card'
+import { Card } from '../../components/common/Card'
 import { Input, Select } from '../../components/common/Input'
 import Button from '../../components/common/Button'
 import EmptyState from '../../components/common/EmptyState'
@@ -77,6 +77,16 @@ const getAdjustedFrequency = (deadline, currentFrequency) => {
   return currentFrequency
 }
 
+const toPercent = (value) => {
+  if (!Number.isFinite(value) || value <= 0) return 0
+  return Math.min(100, Math.round(value * 100))
+}
+
+const getFrequencyProgressLabel = (frequency) => {
+  if (!frequency) return 'Progress'
+  return `${frequency.charAt(0).toUpperCase()}${frequency.slice(1)} Progress`
+}
+
 function GoalsListPage() {
   const navigate = useNavigate()
   const [goals, setGoals] = useState([])
@@ -110,7 +120,7 @@ function GoalsListPage() {
     try {
       await savingsAPI.add({
         goal_id: selectedGoalId,
-        amount: Number(savingsAmount), // FIXED
+        amount: Number(savingsAmount),
         date: new Date()
       })
 
@@ -118,8 +128,8 @@ function GoalsListPage() {
       setShowAddSavings(false)
       fetchGoals()
     } catch (error) {
-      console.error("Failed to add savings", error)
-      alert(error.message || "Failed to add savings.")
+      console.error('Failed to add savings', error)
+      alert(error.message || 'Failed to add savings.')
     }
   }
 
@@ -132,7 +142,26 @@ function GoalsListPage() {
     setError('')
     try {
       const data = await goalsAPI.list()
-      setGoals(data.goals || data || [])
+      const goalList = data.goals || data || []
+
+      const goalsWithProgress = await Promise.all(
+        goalList.map(async (goal) => {
+          try {
+            const progress = await goalsAPI.progress(goal._id)
+            return {
+              ...goal,
+              overallProgress: progress.overallProgress,
+              frequencyProgress: progress.frequencyProgress,
+              saved_so_far: progress.saved_so_far,
+            }
+          } catch (progressError) {
+            console.error('Failed to load progress for goal', goal._id, progressError)
+            return goal
+          }
+        })
+      )
+
+      setGoals(goalsWithProgress)
     } catch (err) {
       setError(err.message || 'Failed to load goals')
     } finally {
@@ -207,7 +236,7 @@ function GoalsListPage() {
       style: 'currency',
       currency: 'INR',
       minimumFractionDigits: 0,
-    }).format(amount)
+    }).format(amount || 0)
   }
 
   const formatDate = (dateString) => {
@@ -217,13 +246,6 @@ function GoalsListPage() {
       month: 'short',
       year: 'numeric'
     })
-  }
-
-  const calculateProgress = (goal) => {
-    const savedAmount = goal.saved_amount ?? 0
-    const targetAmount = goal.target_amount ?? 0
-    if (!savedAmount || !targetAmount) return 0
-    return Math.min(100, Math.round((savedAmount / targetAmount) * 100))
   }
 
   const daysUntilDeadline = getDaysUntilDeadline(formData.deadline)
@@ -315,56 +337,92 @@ function GoalsListPage() {
           </div>
         ) : (
           <div className="goals-grid">
-            {goals.map((goal) => (
-              <Card
-                key={goal._id} // ✅ FIXED
-                className="goal-card"
-                onClick={() => navigate(`/goals/${goal._id}`)} // ✅ FIXED
-              >
-                <div className="goal-card-header">
-                  <div className="goal-card-icon">
-                    <Target size={20} />
-                  </div>
-                  <span className="goal-frequency-badge">{goal.saving_frequency}</span>
-                </div>
-                <div className="goal-card-body">
-                  <div className="goal-amounts">
-                    <div className="goal-saved">
-                      <span className="amount-label">Saved</span>
-                      <span className="amount-value">{formatAmount(goal.saved_amount || 0)}</span>
+            {goals.map((goal) => {
+              const overallPercent = toPercent(goal.overallProgress ?? ((goal.saved_amount || 0) / (goal.target_amount || 1)))
+              const frequencyPercent = toPercent(goal.frequencyProgress ?? 0)
+
+              return (
+                <Card
+                  key={goal._id}
+                  className="goal-card"
+                  onClick={() => navigate(`/goals/${goal._id}`)}
+                >
+                  <div className="goal-card-header">
+                    <div className="goal-card-icon">
+                      <Target size={20} />
                     </div>
-                    <div className="goal-target">
-                      <span className="amount-label">Target</span>
-                      <span className="amount-value">{formatAmount(goal.target_amount)}</span>
+                    <div className="goal-card-badges">
+                      <span className="goal-frequency-badge">{goal.saving_frequency}</span>
+                      <span className="goal-streak-badge">
+                        <Flame size={14} />
+                        {goal.streakCount || 0}
+                      </span>
                     </div>
                   </div>
 
-                  <div className="goal-progress-section">
-                    <div className="goal-progress-bar">
-                      <div
-                        className="goal-progress-fill"
-                        style={{ width: `${calculateProgress(goal)}%` }}
-                      ></div>
+                  <div className="goal-card-body">
+                    <div className="goal-amounts">
+                      <div className="goal-saved">
+                        <span className="amount-label">Saved</span>
+                        <span className="amount-value">{formatAmount(goal.saved_amount || 0)}</span>
+                      </div>
+                      <div className="goal-target">
+                        <span className="amount-label">Target</span>
+                        <span className="amount-value">{formatAmount(goal.target_amount)}</span>
+                      </div>
                     </div>
-                    <span className="goal-progress-text">{calculateProgress(goal)}%</span>
-                  </div>
 
-                  <div className="goal-deadline">
-                    <Calendar size={14} />
-                    <span>Deadline: {formatDate(goal.deadline)}</span>
-                  </div>
+                    <div className="goal-progress-group">
+                      <div className="goal-progress-meta">
+                        <span className="goal-progress-label">Overall Progress</span>
+                        <span className="goal-progress-text">{overallPercent}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={overallPercent}
+                        disabled
+                        readOnly
+                        aria-label="Overall progress"
+                        className="goal-progress-slider"
+                      />
+                    </div>
 
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full mt-4"
-                    onClick={(e) => openAddSavings(e, goal._id)} // ✅ FIXED
-                  >
-                    + Add Contribution
-                  </Button>
-                </div>
-              </Card>
-            ))}
+                    <div className="goal-progress-group">
+                      <div className="goal-progress-meta">
+                        <span className="goal-progress-label">{getFrequencyProgressLabel(goal.saving_frequency)}</span>
+                        <span className="goal-progress-text goal-progress-text--secondary">{frequencyPercent}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={frequencyPercent}
+                        disabled
+                        readOnly
+                        aria-label="Frequency progress"
+                        className="goal-progress-slider goal-progress-slider--secondary"
+                      />
+                    </div>
+
+                    <div className="goal-deadline">
+                      <Calendar size={14} />
+                      <span>Deadline: {formatDate(goal.deadline)}</span>
+                    </div>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full mt-4"
+                      onClick={(e) => openAddSavings(e, goal._id)}
+                    >
+                      + Add Contribution
+                    </Button>
+                  </div>
+                </Card>
+              )
+            })}
           </div>
         )}
       </div>
@@ -372,7 +430,6 @@ function GoalsListPage() {
       {showCreateModal && (
         <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-
             <div className="modal-header">
               <h3>Create New Goal</h3>
               <button onClick={() => setShowCreateModal(false)}>
@@ -383,7 +440,6 @@ function GoalsListPage() {
             {formError && <div className="form-error">{formError}</div>}
 
             <form onSubmit={handleCreateGoal} className="modal-form">
-
               <Input
                 label="Target Amount"
                 type="number"
@@ -416,17 +472,15 @@ function GoalsListPage() {
                 <Button type="button" onClick={() => setShowCreateModal(false)}>
                   Cancel
                 </Button>
-                <Button type="submit">
+                <Button type="submit" disabled={isSubmitting}>
                   Create Goal
                 </Button>
               </div>
-
             </form>
           </div>
         </div>
       )}
 
-      {/* Add Savings Modal */}
       {showAddSavings && (
         <div className="modal-overlay" onClick={() => setShowAddSavings(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -438,7 +492,7 @@ function GoalsListPage() {
             </div>
             <form onSubmit={handleAddSavings} className="modal-form">
               <Input
-                label="Amount (₹)"
+                label="Amount (Rs)"
                 type="number"
                 value={savingsAmount}
                 onChange={(e) => setSavingsAmount(e.target.value)}

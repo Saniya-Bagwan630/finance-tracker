@@ -17,7 +17,7 @@ const DEFAULT_BUDGET_PERCENTAGES = {
 };
 
 function buildDefaultBudgets(income) {
-  const budgetIncome = Number(income) || 0;
+  const budgetIncome = (Number(income) || 0) * 0.85;
   return Object.keys(DEFAULT_BUDGET_PERCENTAGES).reduce((acc, category) => {
     acc[category] = Math.round(budgetIncome * DEFAULT_BUDGET_PERCENTAGES[category]);
     return acc;
@@ -82,6 +82,7 @@ async function registerUser(req, res) {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const numericIncome = Number(income) || 0;
     const initialBudgets = buildDefaultBudgets(income);
 
     const user = await User.create({
@@ -89,6 +90,7 @@ async function registerUser(req, res) {
       email,
       password: hashedPassword,
       income,
+      budget_margin: numericIncome * 0.15,
       budgets: initialBudgets,
     });
 

@@ -1,11 +1,13 @@
 const express = require("express");
 const Goal = require("../models/Goal");
 const Saving = require("../models/Saving");
+const User = require("../models/User");
 const authMiddleware = require("../middleware/auth.middleware");
+const { getGoalProgressMetrics, MS_PER_DAY } = require("../utils/goalProgress");
+const { sendGoalCreationEmail } = require("../utils/goalNotifier");
 
 const router = express.Router();
 const VALID_FREQUENCIES = ["daily", "weekly", "monthly"];
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 function startOfToday() {
   const today = new Date();
@@ -53,7 +55,7 @@ function getGoalValidationError({ target_amount, deadline, saving_frequency }) {
  */
 router.post("/create", authMiddleware, async (req, res) => {
   try {
-    const { target_amount, deadline, saving_frequency } = req.body;
+    const { target_amount, deadline, saving_frequency, goal_name } = req.body;
 
     if (!target_amount || !deadline || !saving_frequency) {
       return res.status(400).json({
@@ -77,14 +79,43 @@ router.post("/create", authMiddleware, async (req, res) => {
 
     const normalizedDeadline = new Date(deadline);
     normalizedDeadline.setHours(0, 0, 0, 0);
+    const user = await User.findById(req.user.id, "name email income");
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    const today = startOfToday();
+    const monthsAvailable = Math.max(
+      1,
+      ((normalizedDeadline.getFullYear() - today.getFullYear()) * 12) +
+      (normalizedDeadline.getMonth() - today.getMonth()) +
+      ((normalizedDeadline.getDate() - today.getDate()) >= 0 ? 1 : 0)
+    );
+    const monthlySavingNeeded = Number(target_amount) / monthsAvailable;
+    const userIncome = Number(user.income) || 0;
+
+    if (monthlySavingNeeded > 0.5 * userIncome) {
+      return res.status(400).json({
+        success: false,
+        message: "Goal is not achievable based on your income"
+      });
+    }
 
     const goal = await Goal.create({
       user_id: req.user.id,
+      goal_name: goal_name || "Savings Goal",
       target_amount: Number(target_amount),
       saved_amount: 0,
       deadline: normalizedDeadline,
       saving_frequency
     });
+
+    sendGoalCreationEmail(user, goal)
+      .then(() => console.log(`Goal creation email queued for ${user.email}`))
+      .catch((sendError) => console.error(`Goal creation email failed for ${user.email}:`, sendError));
 
     return res.status(201).json({
       success: true,
@@ -168,11 +199,15 @@ router.get("/progress", authMiddleware, async (req, res) => {
     );
 
     // 4️⃣ Stable response (DO NOT CHANGE FIELD NAMES)
+    const progressMetrics = getGoalProgressMetrics(goal, savedSoFar);
+
     return res.json({
       goal_id: goal._id,
       target_amount: goal.target_amount,
       saved_so_far: savedSoFar,
-      remaining
+      remaining,
+      overallProgress: progressMetrics.overallProgress,
+      frequencyProgress: progressMetrics.frequencyProgress
     });
 
   } catch (error) {

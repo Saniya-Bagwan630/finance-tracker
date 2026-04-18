@@ -13,7 +13,18 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+
     setIsAuthenticated(!!token);
+
+    if (storedUser) {
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (error) {
+        localStorage.removeItem('user');
+      }
+    }
+
     setIsLoading(false);
   }, []);
 
@@ -24,6 +35,7 @@ export function AuthProvider({ children }) {
 
     if (data.user) {
       setUser(data.user);
+      localStorage.setItem('user', JSON.stringify(data.user));
     }
 
     return data;
@@ -34,10 +46,11 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
-    authAPI.logout();          // remove token
+    authAPI.logout();
     setIsAuthenticated(false);
     setUser(null);
-    navigate('/login');        // 🔥 redirect happens HERE
+    localStorage.removeItem('user');
+    navigate('/login');
   };
 
   const value = {

@@ -15,6 +15,7 @@ const userSchema = new mongoose.Schema({
   },
   occupation: { type: String }, // e.g., 'Student', 'Earner'
   incomeRange: { type: String },
+  budget_margin: { type: Number, default: 0 },
   budgets: {
     food: { type: Number, default: 0 },
     transport: { type: Number, default: 0 },

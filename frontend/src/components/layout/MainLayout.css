@@ -13,7 +13,7 @@
 
 .page-content {
   flex: 1;
-  padding: var(--spacing-xl);
+  padding: 1.75rem;
   animation: fadeIn 0.3s ease;
 }
 
@@ -21,8 +21,8 @@
   .main-content {
     margin-left: 0;
   }
-  
+
   .page-content {
-    padding: var(--spacing-md);
+    padding: 1rem;
   }
 }

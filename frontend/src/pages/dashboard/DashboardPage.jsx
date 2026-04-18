@@ -13,13 +13,11 @@ import {
   FileText,
   Heart,
   GraduationCap,
-  Package,
-  X
+  Package
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/common/Card'
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts' // Recharts
-import Button from '../../components/common/Button' // Use common Button
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { expensesAPI, goalsAPI } from '../../services/api'
 import './DashboardPage.css'
 
@@ -46,9 +44,6 @@ function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
 
-  // New Income State Logic Removed
-
-
   const [balance, setBalance] = useState({ account: 0, cash: 0 })
 
   useEffect(() => {
@@ -66,14 +61,6 @@ function DashboardPage() {
         expensesAPI.list().catch(() => ({ expenses: [] })),
       ])
 
-      // Fetch Dashboard Balance (New Route needed or modify summary)
-      // Since we updated dashboard.routes.js /summary, let's use that if we were calling it.
-      // But here we call expensesAPI.summary().
-      // Let's call the new dashboard summary route if possible, or just fetch user details.
-      // For now, let's assume expensesAPI.summary() was updated? No, I updated dashboard.routes.js which is likely called by dashboardAPI.summary() or similar.
-      // Let's check api.js to see what expensesAPI.summary calls.
-
-      // Temporary fix: Call the dashboard summary route directly or via api
       const dashboardRes = await fetch('http://localhost:5000/dashboard/summary', {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
@@ -91,9 +78,6 @@ function DashboardPage() {
       setIsLoading(false)
     }
   }
-
-  // handleAddIncome Removed
-
 
   const formatAmount = (amount) => {
     if (!amount && amount !== 0) return '₹ --'
@@ -130,18 +114,18 @@ function DashboardPage() {
     : [];
 
   return (
-    <div className="dashboard animate-fade-in relative">
+    <div className="dashboard animate-fade-in">
       <div className="dashboard-welcome">
-        <div>
+        <div className="dashboard-welcome-copy">
+          <span className="dashboard-eyebrow">Financial command center</span>
           <h2>Welcome back! 👋</h2>
           <p>Here's your financial overview</p>
         </div>
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-          {/* Fix Button Styling: Use standard Button component if possible or match classes */}
+        <div className="dashboard-actions">
           <button
-            onClick={() => setShowAddIncome(true)}
-            className="quick-add-btn"
-            style={{ backgroundColor: '#10b981', border: 'none', color: 'white' }}
+            type="button"
+            onClick={() => navigate('/income/add')}
+            className="quick-add-btn quick-add-btn--secondary"
           >
             <span>+ Add Income</span>
           </button>
@@ -163,7 +147,7 @@ function DashboardPage() {
             <span className="stat-value">
               {isLoading ? '...' : formatAmount((balance.account || 0) + (balance.cash || 0))}
             </span>
-            <div className="flex gap-2 text-xs text-gray-500 mt-1">
+            <div className="dashboard-balance-meta">
               <span>Acc: {formatAmount(balance.account || 0)}</span>
               <span>•</span>
               <span>Cash: {formatAmount(balance.cash || 0)}</span>
@@ -209,7 +193,7 @@ function DashboardPage() {
             </Link>
           </CardHeader>
           <CardContent>
-            <div style={{ height: 220, width: '100%', display: 'flex', justifyContent: 'center' }}>
+            <div className="dashboard-chart-shell">
               {chartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -233,21 +217,20 @@ function DashboardPage() {
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex items-center justify-center h-full text-gray-400">
+                <div className="chart-empty-state">
                   No data available
                 </div>
               )}
             </div>
 
-            {/* Dynamic Legend */}
-            <div className="mt-4 text-xs">
+            <div className="dashboard-chart-legend">
               {chartData.map((entry, index) => (
-                <div key={entry.name} className="flex justify-between py-1 border-b border-gray-100">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
-                    <span className="capitalize text-gray-600">{entry.name}</span>
+                <div key={entry.name} className="dashboard-chart-legend-item">
+                  <div className="dashboard-chart-legend-label">
+                    <div className="dashboard-chart-legend-dot" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
+                    <span className="dashboard-chart-legend-name">{entry.name}</span>
                   </div>
-                  <span className="font-semibold">{formatAmount(entry.value)}</span>
+                  <span className="dashboard-chart-legend-value">{formatAmount(entry.value)}</span>
                 </div>
               ))}
             </div>

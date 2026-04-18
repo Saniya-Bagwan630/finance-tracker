@@ -7,13 +7,23 @@ import {
   Edit2,
   Trash2,
   Clock,
-  X
+  X,
+  Flame
 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/common/Card'
 import Button from '../../components/common/Button'
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import api from '../../services/api'
 import './GoalPages.css'
+
+const toPercent = (value) => {
+  if (!Number.isFinite(value) || value <= 0) return 0
+  return Math.min(100, Math.round(value * 100))
+}
+
+const getFrequencyProgressLabel = (frequency) => {
+  if (!frequency) return 'Progress'
+  return `${frequency.charAt(0).toUpperCase()}${frequency.slice(1)} Progress`
+}
 
 function GoalDetailPage() {
   const { id } = useParams()
@@ -22,14 +32,18 @@ function GoalDetailPage() {
   const [showAddSavings, setShowAddSavings] = useState(false)
   const [amount, setAmount] = useState('')
 
-  // Fetch Goal Progress
   const fetchGoalData = async () => {
     try {
       setLoading(true)
       const data = await api.goals.progress(id)
-      setGoalData(data)
+      const listData = await api.goals.list()
+      const goalMeta = (listData.goals || listData || []).find((goal) => goal._id === id)
+      setGoalData({
+        ...goalMeta,
+        ...data,
+      })
     } catch (error) {
-      console.error("Failed to fetch goal", error)
+      console.error('Failed to fetch goal', error)
     } finally {
       setLoading(false)
     }
@@ -39,7 +53,6 @@ function GoalDetailPage() {
     fetchGoalData()
   }, [id])
 
-  // Handle Add Savings
   const handleAddSavings = async (e) => {
     e.preventDefault()
     if (!amount) return
@@ -50,13 +63,12 @@ function GoalDetailPage() {
         amount: parseFloat(amount),
         date: new Date()
       })
-      // Refresh data and close modal
       setAmount('')
       setShowAddSavings(false)
       fetchGoalData()
     } catch (error) {
-      console.error("Failed to add savings", error)
-      alert("Failed to add savings. Please try again.")
+      console.error('Failed to add savings', error)
+      alert('Failed to add savings. Please try again.')
     }
   }
 
@@ -68,11 +80,8 @@ function GoalDetailPage() {
     return <div className="p-8 text-center">Goal not found.</div>
   }
 
-  // Calculate percentage safely
-  const percent = Math.min(
-    Math.round((goalData.saved_so_far / goalData.target_amount) * 100),
-    100
-  )
+  const overallPercent = toPercent(goalData.overallProgress ?? (goalData.saved_so_far / goalData.target_amount))
+  const frequencyPercent = toPercent(goalData.frequencyProgress ?? 0)
 
   return (
     <div className="goal-detail-page animate-fade-in relative">
@@ -88,7 +97,11 @@ function GoalDetailPage() {
           </div>
           <div>
             <h2>Goal Details</h2>
-            <p className="goal-subtitle">Target: ₹{goalData.target_amount.toLocaleString()}</p>
+            <p className="goal-subtitle">Target: Rs {goalData.target_amount.toLocaleString()}</p>
+            <div className="goal-detail-streak">
+              <Flame size={16} />
+              <span>{goalData.streakCount || 0} streak</span>
+            </div>
           </div>
         </div>
         <div className="goal-actions">
@@ -97,38 +110,59 @@ function GoalDetailPage() {
         </div>
       </div>
 
-      {/* Progress Card */}
       <Card className="progress-card">
-        <div className="progress-overview">
-          <div className="progress-ring-placeholder">
-            <div className="ring-center">
-              <span className="ring-percent">{percent}%</span>
-              <span className="ring-label">Complete</span>
-            </div>
-            {/* Simple SVG Ring could go here, but using placeholder style for now */}
-            <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="45" fill="none" stroke="#e2e8f0" strokeWidth="8" />
-              <circle
-                cx="50" cy="50" r="45" fill="none" stroke="#10b981" strokeWidth="8"
-                strokeDasharray="283"
-                strokeDashoffset={283 - (283 * percent) / 100}
-                className="transition-all duration-1000 ease-out"
-              />
-            </svg>
+        <div className="progress-stats progress-stats--detail">
+          <div className="progress-stat">
+            <span className="progress-stat-label">Target Amount</span>
+            <span className="progress-stat-value">Rs {goalData.target_amount.toLocaleString()}</span>
           </div>
-          <div className="progress-stats">
-            <div className="progress-stat">
-              <span className="progress-stat-label">Target Amount</span>
-              <span className="progress-stat-value">₹ {goalData.target_amount.toLocaleString()}</span>
+          <div className="progress-stat">
+            <span className="progress-stat-label">Saved So Far</span>
+            <span className="progress-stat-value saved">Rs {goalData.saved_so_far.toLocaleString()}</span>
+          </div>
+          <div className="progress-stat">
+            <span className="progress-stat-label">Remaining</span>
+            <span className="progress-stat-value">Rs {goalData.remaining.toLocaleString()}</span>
+          </div>
+          <div className="progress-stat">
+            <span className="progress-stat-label">{getFrequencyProgressLabel(goalData.saving_frequency)}</span>
+            <span className="progress-stat-value progress-stat-value--secondary">{frequencyPercent}%</span>
+          </div>
+        </div>
+
+        <div className="detail-progress-stack">
+          <div className="detail-progress-row">
+            <div className="detail-progress-head">
+              <span>Overall Progress</span>
+              <span>{overallPercent}%</span>
             </div>
-            <div className="progress-stat">
-              <span className="progress-stat-label">Saved So Far</span>
-              <span className="progress-stat-value saved">₹ {goalData.saved_so_far.toLocaleString()}</span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={overallPercent}
+              disabled
+              readOnly
+              aria-label="Overall progress"
+              className="goal-progress-slider goal-progress-slider--large"
+            />
+          </div>
+
+          <div className="detail-progress-row">
+            <div className="detail-progress-head">
+              <span>{getFrequencyProgressLabel(goalData.saving_frequency)}</span>
+              <span>{frequencyPercent}%</span>
             </div>
-            <div className="progress-stat">
-              <span className="progress-stat-label">Remaining</span>
-              <span className="progress-stat-value">₹ {goalData.remaining.toLocaleString()}</span>
-            </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={frequencyPercent}
+              disabled
+              readOnly
+              aria-label="Frequency progress"
+              className="goal-progress-slider goal-progress-slider--secondary goal-progress-slider--large"
+            />
           </div>
         </div>
 
@@ -144,7 +178,6 @@ function GoalDetailPage() {
       </Card>
 
       <div className="goal-detail-grid">
-        {/* Savings History Placeholder */}
         <Card className="history-card">
           <CardHeader><CardTitle>Savings History</CardTitle></CardHeader>
           <CardContent>
@@ -157,7 +190,6 @@ function GoalDetailPage() {
         </Card>
       </div>
 
-      {/* Add Savings Modal Overlay */}
       {showAddSavings && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl animate-fade-in mx-4">
@@ -169,7 +201,7 @@ function GoalDetailPage() {
             </div>
             <form onSubmit={handleAddSavings} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₹)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Amount (Rs)</label>
                 <input
                   type="number"
                   value={amount}
@@ -191,7 +223,6 @@ function GoalDetailPage() {
           </div>
         </div>
       )}
-
     </div>
   )
 }

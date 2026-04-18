@@ -1,5 +1,5 @@
 import { Outlet } from 'react-router-dom'
-import { Wallet } from 'lucide-react'
+import BrandLogo from './BrandLogo'
 import './AuthLayout.css'
 
 function AuthLayout() {
@@ -7,10 +7,7 @@ function AuthLayout() {
     <div className="auth-layout">
       <div className="auth-left">
         <div className="auth-brand">
-          <div className="auth-logo">
-            <Wallet size={32} />
-          </div>
-          <h1 className="auth-title">FinanceAI</h1>
+          <BrandLogo subtitle="Premium personal finance" size="large" />
         </div>
         <div className="auth-tagline">
           <h2>Smart money management for the next generation</h2>

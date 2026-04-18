@@ -4,7 +4,6 @@ import {
   Receipt,
   Target,
   TrendingUp,
-  MessageSquare,
   PlusCircle,
   History,
   PieChart,
@@ -12,11 +11,11 @@ import {
   Calendar,
   BarChart3,
   ChevronDown,
-  Wallet,
   X
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
+import BrandLogo from './BrandLogo'
 import './Sidebar.css'
 
 const navItems = [
@@ -84,12 +83,7 @@ function Sidebar({ isOpen, onClose }) {
 
       <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
-          <div className="logo">
-            <div className="logo-icon">
-              <Wallet size={24} />
-            </div>
-            <span className="logo-text">FinanceAI</span>
-          </div>
+          <BrandLogo />
           <button className="sidebar-close-btn" onClick={onClose}>
             <X size={24} />
           </button>
@@ -150,6 +144,7 @@ function Sidebar({ isOpen, onClose }) {
             <div className="user-info">
               <span className="user-name">{user?.name || 'User'}</span>
               <span className="user-type">{user?.occupation || 'Student'}</span>
+              <span className="user-greeting">Glad to see you back.</span>
             </div>
           </div>
         </div>
