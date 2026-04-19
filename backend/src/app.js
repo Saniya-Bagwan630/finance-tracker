@@ -8,37 +8,39 @@ const { notFoundHandler, errorHandler } = require("./middleware/error.middleware
 
 const app = express();
 
-// ===== CORS SETUP =====
-const allowedOrigins = [
-  "http://localhost:5173", // local frontend
-  process.env.FRONTEND_URL // deployed frontend
-].filter(Boolean);
+const allowedOrigins = new Set([
+  "http://localhost:5173",
+  "https://finance-tracker-beryl-kappa.vercel.app",
+  process.env.FRONTEND_URL,
+].filter(Boolean));
+
 const corsOptions = {
-  origin: function (origin, callback) {
-    if (
-      !origin ||
-      origin.includes(".vercel.app") ||
-      origin === "http://localhost:5173"
-    ) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
+  origin(origin, callback) {
+    if (!origin) {
+      return callback(null, true);
     }
+
+    try {
+      if (allowedOrigins.has(origin) || /\.vercel\.app$/i.test(new URL(origin).hostname)) {
+        return callback(null, true);
+      }
+    } catch (error) {
+      return callback(new Error("Not allowed by CORS"));
+    }
+
+    return callback(new Error("Not allowed by CORS"));
   },
   credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  optionsSuccessStatus: 204,
 };
 
-// 🔥 IMPORTANT: handle CORS + preflight
-app.use(cors({
-  origin: true,       // reflect the request origin
-  credentials: true,
-}));
-app.options("/*", cors(corsOptions));
-
-// ===== SECURITY =====
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
+app.use(express.json());
 app.use(helmet());
 
-// ===== RATE LIMIT =====
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: Number(process.env.RATE_LIMIT_MAX || 300),
@@ -46,9 +48,6 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
 });
 app.use(apiLimiter);
-
-// ===== BODY PARSER =====
-app.use(express.json());
 
 // ===== HEALTH CHECK =====
 app.get("/health", (req, res) => {
@@ -76,6 +75,7 @@ app.use("/income", incomeRoutes);
 
 // ===== TEST PROTECTED ROUTE =====
 const authMiddleware = require("./middleware/auth.middleware");
+
 app.get("/protected-test", authMiddleware, (req, res) => {
   res.json({ success: true, userId: req.user.id });
 });
