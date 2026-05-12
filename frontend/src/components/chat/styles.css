@@ -1,19 +1,4 @@
 /* =========================
-   GLOBAL RESET
-========================= */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: "Inter", "Segoe UI", Arial, sans-serif;
-}
-
-body {
-  background: #eef2f7;
-  color: #111827;
-}
-
-/* =========================
    CHAT PAGE LAYOUT
 ========================= */
 .chat-page {
@@ -22,6 +7,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: stretch;
+  color: #111827;
 }
 
 /* =========================
@@ -40,6 +26,7 @@ body {
   flex-direction: column;
   overflow: hidden;
   border: 1px solid #e5e7eb;
+  font-family: "Inter", "Segoe UI", Arial, sans-serif;
 }
 
 /* =========================

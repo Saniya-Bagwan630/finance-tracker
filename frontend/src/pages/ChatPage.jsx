@@ -1,4 +1,4 @@
-import Chatbot from '../components/chat/App'
+import Chatbot from '../components/chat/ChatPage'
 
 function ChatPage() {
   return <Chatbot />
