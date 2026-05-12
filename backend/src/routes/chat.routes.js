@@ -6,11 +6,12 @@ const ChatMessage = require("../models/ChatMessage");
 const Expense = require("../models/Expense");
 const Income = require("../models/Income");
 const User = require("../models/User");
+const mongoose = require("mongoose");
 
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 const router = express.Router();
-const CHAT_ROUTE_VERSION = "local-parser-db-writes-v3";
+const CHAT_ROUTE_VERSION = "local-parser-db-writes-v4-analysis";
 
 const VALID_EXPENSE_CATEGORIES = [
   "food",
@@ -25,6 +26,63 @@ const VALID_EXPENSE_CATEGORIES = [
 
 const VALID_EXPENSE_MODES = ["Cash", "UPI", "Card"];
 const VALID_INCOME_METHODS = ["Cash", "Account"];
+
+const CATEGORY_LABELS = {
+  food: "Food",
+  transport: "Transport",
+  shopping: "Shopping",
+  entertainment: "Entertainment",
+  bills: "Bills",
+  health: "Health",
+  education: "Education",
+  other: "Other"
+};
+
+const CATEGORY_EMOJIS = {
+  food: "🍕",
+  transport: "🚗",
+  shopping: "🛍️",
+  entertainment: "🎬",
+  bills: "💡",
+  health: "💊",
+  education: "📚",
+  other: "📌"
+};
+
+const SAVINGS_TIPS = {
+  food: {
+    text: "Meal prep on Sundays, cook at home a few more days per week, use grocery lists, and avoid impulse snacks.",
+    savingRate: 0.24
+  },
+  transport: {
+    text: "Use public transit where possible, carpool for repeated routes, walk short distances, and combine trips.",
+    savingRate: 0.18
+  },
+  shopping: {
+    text: "Use a 24-hour rule before purchases, unsubscribe from promo emails, and keep a wishlist instead of buying immediately.",
+    savingRate: 0.25
+  },
+  entertainment: {
+    text: "Share subscriptions, look for free events, rotate streaming services, and set a monthly entertainment cap.",
+    savingRate: 0.22
+  },
+  bills: {
+    text: "Review subscriptions, reduce energy use, compare plans, and negotiate recurring rates where possible.",
+    savingRate: 0.15
+  },
+  health: {
+    text: "Choose generic medicines when suitable, use preventive care, compare pharmacies, and try home workouts.",
+    savingRate: 0.12
+  },
+  education: {
+    text: "Use free online resources, library books, second-hand materials, and study groups before buying new courses.",
+    savingRate: 0.14
+  },
+  other: {
+    text: "Track every small expense, split miscellaneous spending into clearer categories, and set a monthly cap.",
+    savingRate: 0.2
+  }
+};
 
 const log = (...args) => console.log("[CHAT]", ...args);
 const warn = (...args) => console.warn("[CHAT]", ...args);
@@ -49,6 +107,15 @@ function titleCase(value = "") {
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
+}
+
+function formatCurrency(amount) {
+  return `₹${Math.round(Number(amount) || 0).toLocaleString("en-IN")}`;
+}
+
+function formatPercent(value) {
+  const rounded = Number(value).toFixed(1);
+  return rounded.endsWith(".0") ? rounded.slice(0, -2) : rounded;
 }
 
 function extractAmount(message) {
@@ -119,7 +186,36 @@ function isIncomeIntent(message) {
 
 function isAnalyzeIntent(message) {
   const text = normalizeText(message);
-  return /spent most|where.*spend|where.*spent|breakdown|analy[sz]e|save more|saving advice|spending pattern|summary/.test(text);
+  return /where.*spend|where.*spent|spend most|spent most|top.*categor|breakdown|analy[sz]e|save more|saving advice|savings advice|spending pattern|spending patterns|insight|insights|how.*save/.test(text);
+}
+
+function detectAnalysisPeriod(message) {
+  const text = normalizeText(message);
+  const now = new Date();
+  let startDate = null;
+  let label = "all time";
+  let days = null;
+
+  if (/all time|overall|ever|lifetime/.test(text)) {
+    return { startDate, endDate: now, label, days };
+  }
+
+  if (/this week|weekly|last 7 days|past 7 days/.test(text)) {
+    startDate = new Date(now);
+    startDate.setDate(now.getDate() - 6);
+    startDate.setHours(0, 0, 0, 0);
+    return { startDate, endDate: now, label: "this week", days: 7 };
+  }
+
+  if (/this month|monthly/.test(text)) {
+    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { startDate, endDate: now, label: "this month", days: Math.max(1, now.getDate()) };
+  }
+
+  startDate = new Date(now);
+  startDate.setDate(now.getDate() - 29);
+  startDate.setHours(0, 0, 0, 0);
+  return { startDate, endDate: now, label: "the last 30 days", days: 30 };
 }
 
 function detectNavigationTarget(message) {
@@ -221,41 +317,90 @@ async function createIncome(userId, payload) {
   return income;
 }
 
-async function analyzeSpending(userId) {
-  log("Analyzing spending for user:", userId);
-  const expenses = await Expense.find({ user_id: userId });
+async function analyzeSpending(userId, timePeriod = 30, originalMessage = "") {
+  const requestedPeriod = typeof timePeriod === "number"
+    ? { startDate: null, endDate: new Date(), label: timePeriod === 30 ? "the last 30 days" : `the last ${timePeriod} days`, days: timePeriod }
+    : detectAnalysisPeriod(originalMessage);
 
-  if (!expenses.length) {
+  const period = originalMessage ? detectAnalysisPeriod(originalMessage) : requestedPeriod;
+  const match = { user_id: new mongoose.Types.ObjectId(userId) };
+
+  if (period.startDate) {
+    match.date = { $gte: period.startDate, $lte: period.endDate };
+  }
+
+  log("Analyzing spending for user:", userId, "period:", period.label, "match:", match);
+
+  const categoryTotals = await Expense.aggregate([
+    { $match: match },
+    {
+      $group: {
+        _id: "$category",
+        amount: { $sum: "$amount" },
+        count: { $sum: 1 }
+      }
+    },
+    { $sort: { amount: -1 } }
+  ]);
+
+  if (!categoryTotals.length) {
     return {
-      message: "You do not have any recorded expenses yet. Try saying: spent 200 on pizza.",
+      message: `I could not find any expenses for ${period.label}. Try logging a few expenses first, like "spent 200 on books", and I will give you a useful spending breakdown.`,
       action: null
     };
   }
 
-  const byCategory = {};
-  let total = 0;
+  const totalSpent = categoryTotals.reduce((sum, item) => sum + item.amount, 0);
+  const topCategories = categoryTotals.slice(0, 3).map((item) => ({
+    category: VALID_EXPENSE_CATEGORIES.includes(item._id) ? item._id : "other",
+    amount: item.amount,
+    count: item.count,
+    percentage: totalSpent > 0 ? (item.amount / totalSpent) * 100 : 0
+  }));
 
-  expenses.forEach((expense) => {
-    byCategory[expense.category] = (byCategory[expense.category] || 0) + expense.amount;
-    total += expense.amount;
-  });
-
-  const top = Object.entries(byCategory).sort((a, b) => b[1] - a[1]).slice(0, 3);
-  const breakdown = top
-    .map(([category, amount], index) => {
-      const percent = ((amount / total) * 100).toFixed(1);
-      return `${index + 1}. ${titleCase(category)}: ₹${amount} (${percent}%)`;
+  const breakdown = topCategories
+    .map((item, index) => {
+      const label = CATEGORY_LABELS[item.category] || titleCase(item.category);
+      return `${index + 1}. ${label}: ${formatCurrency(item.amount)} (${formatPercent(item.percentage)}% of total)`;
     })
     .join("\n");
 
+  const adviceBlocks = topCategories.map((item) => {
+    const label = CATEGORY_LABELS[item.category] || titleCase(item.category);
+    const emoji = CATEGORY_EMOJIS[item.category] || CATEGORY_EMOJIS.other;
+    const tip = SAVINGS_TIPS[item.category] || SAVINGS_TIPS.other;
+    const estimatedSavings = Math.max(100, Math.round((item.amount * tip.savingRate) / 100) * 100);
+
+    return `${emoji} ${label}: You spent ${formatCurrency(item.amount)} here. ${tip.text} This could save you around ${formatCurrency(estimatedSavings)}${period.days ? ` in ${period.label}` : " per month"}.`;
+  });
+
+  const totalPotentialSavings = topCategories.reduce((sum, item) => {
+    const tip = SAVINGS_TIPS[item.category] || SAVINGS_TIPS.other;
+    return sum + Math.max(100, Math.round((item.amount * tip.savingRate) / 100) * 100);
+  }, 0);
+
+  const lowerSavings = Math.max(100, Math.round((totalPotentialSavings * 0.8) / 100) * 100);
+  const upperSavings = Math.max(lowerSavings, Math.round((totalPotentialSavings * 1.15) / 100) * 100);
+
   return {
-    message: `Here is your spending breakdown:\n\n${breakdown}\n\nOpening monthly insights so you can review the full chart.`,
-    action: { type: "NAVIGATE", target: "/insights/monthly" }
+    message:
+      `📊 Here's your spending breakdown for ${period.label}:\n\n` +
+      `${breakdown}\n\n` +
+      `Total tracked spending: ${formatCurrency(totalSpent)}\n\n` +
+      `💡 Savings tips for you:\n\n` +
+      `${adviceBlocks.join("\n\n")}\n\n` +
+      `Total potential savings: ${formatCurrency(lowerSavings)}-${formatCurrency(upperSavings)} ${period.days ? `over ${period.label}` : "per month"}! 🎯\n\n` +
+      "Start with the first category this week. Small repeatable cuts beat painful one-time restrictions.",
+    action: null
   };
 }
 
 async function handleMessage(userId, message) {
   log("Parsing message with guaranteed local parser:", message);
+
+  if (isAnalyzeIntent(message)) {
+    return analyzeSpending(userId, 30, message);
+  }
 
   if (isExpenseIntent(message)) {
     const payload = buildExpensePayload(message);
@@ -273,10 +418,6 @@ async function handleMessage(userId, message) {
       message: `Logged ₹${payload.amount} income from ${payload.source} to ${payload.paymentMethod}.`,
       action: { type: "ADD_INCOME", payload }
     };
-  }
-
-  if (isAnalyzeIntent(message)) {
-    return analyzeSpending(userId);
   }
 
   const target = detectNavigationTarget(message);
