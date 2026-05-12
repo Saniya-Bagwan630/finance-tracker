@@ -98,26 +98,50 @@ router.get("/list", authMiddleware, async (req, res) => {
  */
 router.get("/summary", authMiddleware, async (req, res) => {
   try {
-    const expenses = await Expense.find({ user_id: req.user.id });
+    const { startDate, endDate } = req.query;
+    const filter = { user_id: req.user.id };
+
+    if (startDate || endDate) {
+      filter.date = {};
+
+      if (startDate) {
+        const parsedStartDate = new Date(`${startDate}T00:00:00.000Z`);
+
+        if (Number.isNaN(parsedStartDate.getTime())) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid startDate. Use YYYY-MM-DD format."
+          });
+        }
+
+        filter.date.$gte = parsedStartDate;
+      }
+
+      if (endDate) {
+        const parsedEndDate = new Date(`${endDate}T00:00:00.000Z`);
+
+        if (Number.isNaN(parsedEndDate.getTime())) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid endDate. Use YYYY-MM-DD format."
+          });
+        }
+
+        parsedEndDate.setUTCDate(parsedEndDate.getUTCDate() + 1);
+        filter.date.$lt = parsedEndDate;
+      }
+    }
+
+    const expenses = await Expense.find(filter);
 
     let monthlyTotal = 0;
     let weeklyTotal = 0;
     const byCategory = {};
 
-    const now = new Date();
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(now.getDate() - 7);
-
     expenses.forEach((expense) => {
-      // Monthly total (all expenses)
       monthlyTotal += expense.amount;
+      weeklyTotal += expense.amount;
 
-      // Weekly total (last 7 days)
-      if (expense.date >= sevenDaysAgo) {
-        weeklyTotal += expense.amount;
-      }
-
-      // Category breakdown (monthly)
       if (byCategory[expense.category]) {
         byCategory[expense.category] += expense.amount;
       } else {

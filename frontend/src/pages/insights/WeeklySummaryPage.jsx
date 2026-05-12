@@ -15,11 +15,33 @@ import './InsightPages.css'
 
 const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444'];
 
+const toApiDate = (date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const getWeekDates = (date) => {
+  const start = new Date(date)
+  const day = start.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  start.setDate(start.getDate() + diff)
+  start.setHours(0, 0, 0, 0)
+
+  const end = new Date(start)
+  end.setDate(end.getDate() + 6)
+  end.setHours(23, 59, 59, 999)
+
+  return { start, end }
+}
+
 function WeeklySummaryPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [data, setData] = useState({
     totalSpent: 0,
+    totalSaved: 0,
     dailySpending: [],
     categoryBreakdown: []
   })
@@ -28,10 +50,7 @@ function WeeklySummaryPage() {
   const [currentDate, setCurrentDate] = useState(new Date())
 
   const getWeekRange = (date) => {
-    const start = new Date(date)
-    start.setDate(start.getDate() - start.getDay() + 1) // Monday
-    const end = new Date(start)
-    end.setDate(end.getDate() + 6) // Sunday
+    const { start, end } = getWeekDates(date)
 
     // Format: "Dec 9 - Dec 15, 2024"
     const options = { month: 'short', day: 'numeric' }
@@ -46,9 +65,11 @@ function WeeklySummaryPage() {
     setLoading(true)
     setError('')
     try {
-      // Simulation of weekly fetch or using available APIs
-      // In a real app, pass ?startDate=${...}&endDate=${...}
-      const summary = await expensesAPI.summary()
+      const { start, end } = getWeekDates(currentDate)
+      const summary = await expensesAPI.summary({
+        startDate: toApiDate(start),
+        endDate: toApiDate(end)
+      })
       const expenses = await expensesAPI.list()
       // Fetch Dashboard Summary for Total Saved
       const dashSum = await dashboardAPI.summary()
@@ -64,10 +85,12 @@ function WeeklySummaryPage() {
         { name: 'Sun', amount: 0 },
       ]
 
-      // Simple aggregation of expenses by day (using list)
+      // Aggregate only expenses that fall within the selected week.
       if (expenses && expenses.expenses) {
         expenses.expenses.forEach(exp => {
           const d = new Date(exp.date);
+          if (d < start || d > end) return;
+
           const day = d.getDay();
           // Adjust for Mon-Sun (Mon=1 ... Sun=0 in JS) -> Array index 0-6
           const index = day === 0 ? 6 : day - 1;
@@ -88,7 +111,7 @@ function WeeklySummaryPage() {
 
       setData({
         totalSpent: summary?.weekly_total || 0,
-        totalSaved: (dashSum.total_saved || 0) + (dashSum.total_income || 0),
+        totalSaved: dashSum.total_saved || 0,
         dailySpending: dailyData,
         categoryBreakdown: categories
       })
@@ -173,7 +196,7 @@ function WeeklySummaryPage() {
           <div className="stat-body">
             <span className="stat-amount">{loading ? '...' : formatAmount(data.totalSaved)}</span>
             <span className="stat-comparison success">
-              Income + Goals
+              Goal contributions
             </span>
           </div>
         </Card>

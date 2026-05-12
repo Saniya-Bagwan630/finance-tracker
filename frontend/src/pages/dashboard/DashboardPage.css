@@ -91,6 +91,17 @@
   box-shadow: 0 18px 32px rgba(15, 23, 42, 0.18);
 }
 
+.quick-add-btn--danger {
+  background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+  box-shadow: 0 16px 32px rgba(220, 38, 38, 0.18) !important;
+}
+
+.quick-add-btn--danger:hover {
+  background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 20px 36px rgba(220, 38, 38, 0.22) !important;
+}
+
 .dashboard-error {
   padding: 1rem 1.2rem;
   border: 1px solid rgba(239, 68, 68, 0.22);

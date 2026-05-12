@@ -16,7 +16,33 @@ import './InsightPages.css'
 
 const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#ef4444'];
 
+const toMonthInputValue = (date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  return `${year}-${month}`
+}
+
+const toApiDate = (date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const getMonthRange = (monthValue) => {
+  const [year, month] = monthValue.split('-').map(Number)
+  const start = new Date(year, month - 1, 1)
+  const end = new Date(year, month, 0)
+
+  return {
+    startDate: toApiDate(start),
+    endDate: toApiDate(end),
+    label: start.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  }
+}
+
 function MonthlyInsightsPage() {
+  const [selectedMonth, setSelectedMonth] = useState(() => toMonthInputValue(new Date()))
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [chartData, setChartData] = useState([])
@@ -24,30 +50,29 @@ function MonthlyInsightsPage() {
 
   useEffect(() => {
     fetchInsights()
-  }, [])
+  }, [selectedMonth])
 
   const fetchInsights = async () => {
     try {
       setLoading(true)
       setError('')
-      const response = await api.expenses.summary()
+      const { startDate, endDate } = getMonthRange(selectedMonth)
+      const response = await api.expenses.summary({ startDate, endDate })
       // response format: { success, weekly_total, monthly_total, by_category }
       if (response.success) {
         setData(response)
-        if (response.by_category) {
-          const chart = Object.entries(response.by_category).map(([name, value]) => ({
-            name: name.charAt(0).toUpperCase() + name.slice(1),
-            value
-          })).sort((a, b) => b.value - a.value);
-          setChartData(chart);
-        }
+        const chart = Object.entries(response.by_category || {}).map(([name, value]) => ({
+          name: name.charAt(0).toUpperCase() + name.slice(1),
+          value
+        })).sort((a, b) => b.value - a.value);
+        setChartData(chart);
 
-        // Fetch Total Saved (Income + Goals)
+        // Fetch Total Saved from goal contributions only.
         const dashSum = await dashboardAPI.summary()
 
         setData(prev => ({
           ...prev,
-          totalSaved: (dashSum.total_saved || 0) + (dashSum.total_income || 0)
+          totalSaved: dashSum.total_saved || 0
         }));
       }
     } catch (error) {
@@ -87,6 +112,8 @@ function MonthlyInsightsPage() {
     )
   }
 
+  const selectedMonthRange = getMonthRange(selectedMonth)
+
   // Find max category for "Most Spent"
   let mostSpentCategory = "None";
   let mostSpentAmount = 0;
@@ -109,7 +136,13 @@ function MonthlyInsightsPage() {
         </div>
         <div className="header-actions">
           <div className="month-navigation">
-            <span className="month-label">December 2025</span>
+            <input
+              type="month"
+              className="month-label"
+              value={selectedMonth}
+              onChange={(event) => setSelectedMonth(event.target.value)}
+              aria-label="Select month"
+            />
           </div>
           <Button variant="outline" icon={Download} size="sm" onClick={exportReport}>
             Export Report
@@ -150,7 +183,7 @@ function MonthlyInsightsPage() {
                 ₹ {data?.totalSaved?.toLocaleString() || 0}
               </span>
               <span className="overview-change neutral">
-                Income + Goals
+                Goal contributions
               </span>
             </div>
           </div>
@@ -244,7 +277,7 @@ function MonthlyInsightsPage() {
               <div className="report-section">
                 <h4>📈 Spending Summary</h4>
                 <p>
-                  You have spent ₹{data?.monthly_total} this month.
+                  You have spent ₹{data?.monthly_total} in {selectedMonthRange.label}.
                   {mostSpentAmount > 0
                     ? ` Your highest spending category is ${mostSpentCategory}.`
                     : " Start tracking to see insights."}

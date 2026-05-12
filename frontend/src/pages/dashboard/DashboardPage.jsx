@@ -126,7 +126,7 @@ function DashboardPage() {
           >
             <span>+ Add Income</span>
           </button>
-          <Link to="/expenses/add" className="quick-add-btn">
+          <Link to="/expenses/add" className="quick-add-btn quick-add-btn--danger">
             <span>+ Add Expense</span>
           </Link>
         </div>
