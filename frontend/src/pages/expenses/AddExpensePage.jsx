@@ -27,7 +27,6 @@ const categories = [
 ]
 
 const sourceOptions = [
-  { value: '', label: 'Select mode of payment' },
   { value: 'Cash', label: 'Cash' },
   { value: 'UPI', label: 'UPI' },
   { value: 'Card', label: 'Card' },
@@ -39,7 +38,7 @@ function AddExpensePage() {
     amount: '',
     category: '',
     date: new Date().toISOString().split('T')[0],
-    mode: 'manual',
+    mode: 'UPI',
   })
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -70,7 +69,7 @@ function AddExpensePage() {
         amount: Number(formData.amount),
         category: formData.category,
         date: formData.date,
-        mode: formData.source || 'manual',
+        mode: formData.mode || 'UPI',
       })
       
       setSuccess('Expense added successfully!')
@@ -78,7 +77,7 @@ function AddExpensePage() {
         amount: '',
         category: '',
         date: new Date().toISOString().split('T')[0],
-        mode: 'manual',
+        mode: 'UPI',
       })
       
       // Redirect to history after short delay
@@ -147,7 +146,7 @@ function AddExpensePage() {
                   label="Mode of Payment"
                   name="mode"
                   options={sourceOptions}
-                  value={formData.source}
+                  value={formData.mode}
                   onChange={handleChange}
                 />
               </div>

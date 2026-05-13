@@ -24,14 +24,18 @@ const extractAmount = (text) => {
 
 const detectCategory = (text) => {
   const normalized = normalizeText(text);
+  const hasKeyword = (keyword) => {
+    const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+    return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, 'i').test(normalized);
+  };
 
-  if (/pizza|burger|food|lunch|dinner|breakfast|coffee|tea|snack|restaurant|cafe|zomato|swiggy|meal|grocer/.test(normalized)) return "food";
-  if (/uber|ola|taxi|cab|auto|bus|train|metro|fuel|petrol|diesel|transport|rickshaw/.test(normalized)) return "transport";
-  if (/shopping|bought|buy|clothes|shirt|jeans|shoes|amazon|flipkart|mall|dress|watch|bag/.test(normalized)) return "shopping";
-  if (/movie|cinema|netflix|prime|spotify|game|concert|party|entertainment|subscription/.test(normalized)) return "entertainment";
-  if (/bill|electricity|wifi|internet|rent|water|gas|recharge|utility|mobile/.test(normalized)) return "bills";
-  if (/doctor|medicine|hospital|clinic|pharmacy|health|medical/.test(normalized)) return "health";
-  if (/book|course|tuition|class|college|school|stationery|stationary|pen|notebook|education/.test(normalized)) return "education";
+  if (["pizza", "burger", "food", "lunch", "dinner", "breakfast", "coffee", "tea", "snack", "restaurant", "cafe", "zomato", "swiggy", "meal", "groceries"].some(hasKeyword)) return "food";
+  if (["uber", "ola", "taxi", "cab", "auto", "bus", "train", "metro", "fuel", "petrol", "diesel", "transport", "rickshaw"].some(hasKeyword)) return "transport";
+  if (["shopping", "bought", "buy", "clothes", "shirt", "jeans", "shoes", "amazon", "flipkart", "mall", "dress", "watch", "bag", "makeup", "cosmetics", "beauty product"].some(hasKeyword)) return "shopping";
+  if (["movie", "cinema", "netflix", "prime", "spotify", "game", "concert", "party", "entertainment", "subscription"].some(hasKeyword)) return "entertainment";
+  if (["bill", "bills", "electricity", "wifi", "internet", "rent", "water", "gas", "recharge", "utility", "mobile"].some(hasKeyword)) return "bills";
+  if (["doctor", "medicine", "hospital", "clinic", "pharmacy", "health", "medical", "skincare", "skin care", "sunscreen", "moisturizer", "face wash"].some(hasKeyword)) return "health";
+  if (["book", "books", "course", "tuition", "class", "college", "school", "stationery", "stationary", "pen", "notebook", "education"].some(hasKeyword)) return "education";
 
   return "other";
 };
@@ -40,7 +44,8 @@ const detectExpenseMode = (text) => {
   const normalized = normalizeText(text);
   if (/\bupi\b|gpay|google pay|phonepe|paytm/.test(normalized)) return "UPI";
   if (/\bcard\b|credit|debit/.test(normalized)) return "Card";
-  return "Cash";
+  if (/\bcash\b/.test(normalized)) return "Cash";
+  return "UPI";
 };
 
 const detectIncomeSource = (text) => {
@@ -54,6 +59,31 @@ const detectIncomeSource = (text) => {
 };
 
 const detectIncomeMethod = (text) => (/\bcash\b/.test(normalizeText(text)) ? "Cash" : "Account");
+
+const buildBasicFinanceReply = (text) => {
+  const normalized = normalizeText(text);
+
+  if (/decrease.*spend|reduce.*spend|cut.*spend|save more|where.*save|saving|savings|budget|financial advice|manage money/.test(normalized)) {
+    return [
+      "Here is a basic plan while the AI service is unreachable:",
+      "1. Track every expense for 30 days.",
+      "2. Cut the biggest flexible category first, usually food, shopping, or entertainment.",
+      "3. Set a weekly spending cap and stop spending in that category once the cap is reached.",
+      "4. Cancel unused subscriptions and wait 24 hours before non-essential purchases.",
+      "5. Move savings aside as soon as income arrives."
+    ].join("\n");
+  }
+
+  if (/invest|investment/.test(normalized)) {
+    return "Before investing, build an emergency fund and clear high-interest debt. Then learn about low-cost diversified options and invest only money you will not need soon. This is general education, not guaranteed financial advice.";
+  }
+
+  if (/debt|loan|credit card/.test(normalized)) {
+    return "Pay minimums on every debt, then put extra money toward the highest-interest balance first. Avoid new borrowing while you do this and keep a small emergency buffer.";
+  }
+
+  return "I can help with expenses, income, budgets, savings, goals, and insights. Try: spent 200 on pizza, received 5000 salary, how can I decrease my spending, or where can I save more?";
+};
 
 const buildClientFallbackAction = (text) => {
   const normalized = normalizeText(text);
@@ -160,21 +190,29 @@ export function ChatProvider({ children }) {
     const action = buildClientFallbackAction(userText);
 
     if (!action) {
-      addMessage("I can help with expenses, income, goals, and insights. Try: spent 200 on pizza, received 5000 salary, or show my goals.", "bot");
+      addMessage(buildBasicFinanceReply(userText), "bot");
       return;
     }
 
     if (action.type === "ADD_EXPENSE") {
       const { amount, category, mode, date } = action.payload;
-      await api.expenses.add({ amount, category, mode, date });
-      addMessage(`✅ Expense of ₹${amount} added under ${category.charAt(0).toUpperCase() + category.slice(1)}!`, "bot");
+      try {
+        await api.expenses.add({ amount, category, mode, date });
+        addMessage(`Expense of Rs ${amount} added under ${category.charAt(0).toUpperCase() + category.slice(1)}!`, "bot");
+      } catch (err) {
+        addMessage("I understood this as an expense, but I could not save it right now. Please try again when the server is reachable.", "bot");
+      }
       return;
     }
 
     if (action.type === "ADD_INCOME") {
       const { amount, source, paymentMethod, date } = action.payload;
-      await api.income.add({ amount, source, paymentMethod, date });
-      addMessage(`✅ Income of ₹${amount} from ${source} logged successfully!`, "bot");
+      try {
+        await api.income.add({ amount, source, paymentMethod, date });
+        addMessage(`Income of Rs ${amount} from ${source} logged successfully!`, "bot");
+      } catch (err) {
+        addMessage("I understood this as income, but I could not save it right now. Please try again when the server is reachable.", "bot");
+      }
       return;
     }
 
@@ -221,7 +259,7 @@ export function ChatProvider({ children }) {
       await handleAction(action, botText);
 
     } catch (error) {
-      addMessage("Something went wrong. Please try again.", "bot");
+      await runClientFallback(userText);
     } finally {
       setIsLoading(false);
     }

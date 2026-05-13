@@ -205,7 +205,7 @@ function ExpenseHistoryPage() {
                     <td>{formatDate(expense.date)}</td>
                     <td>
                       <span className="source-badge">
-                        {expense.type === 'income' ? (expense.paymentMethod || 'Bonus') : (expense.source || 'manual')}
+                        {expense.type === 'income' ? (expense.paymentMethod || 'Bonus') : (expense.mode || 'manual')}
                       </span>
                     </td>
                     <td className={`amount-cell ${expense.type === 'income' ? 'text-green-600 font-bold' : 'text-red-500'}`}>

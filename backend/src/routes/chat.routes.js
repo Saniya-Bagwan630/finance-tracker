@@ -11,7 +11,9 @@ const mongoose = require("mongoose");
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 const router = express.Router();
-const CHAT_ROUTE_VERSION = "local-parser-db-writes-v4-analysis";
+const CHAT_ROUTE_VERSION = "gemini-2.5-flash-with-local-fallback-v5";
+const GEMINI_MODEL_NAME = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
 const VALID_EXPENSE_CATEGORIES = [
   "food",
@@ -110,7 +112,7 @@ function titleCase(value = "") {
 }
 
 function formatCurrency(amount) {
-  return `₹${Math.round(Number(amount) || 0).toLocaleString("en-IN")}`;
+  return `Rs ${Math.round(Number(amount) || 0).toLocaleString("en-IN")}`;
 }
 
 function formatPercent(value) {
@@ -129,19 +131,23 @@ function extractAmount(message) {
 
 function detectExpenseCategory(message) {
   const text = normalizeText(message);
+  const hasKeyword = (keyword) => {
+    const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+    return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i").test(text);
+  };
 
   const groups = [
     ["food", ["pizza", "burger", "food", "lunch", "dinner", "breakfast", "coffee", "tea", "snack", "restaurant", "cafe", "zomato", "swiggy", "meal", "groceries"]],
     ["transport", ["uber", "ola", "taxi", "cab", "auto", "bus", "train", "metro", "fuel", "petrol", "diesel", "transport", "rickshaw"]],
-    ["shopping", ["shopping", "bought", "buy", "clothes", "shirt", "jeans", "shoes", "amazon", "flipkart", "mall", "dress", "watch", "bag"]],
+    ["shopping", ["shopping", "bought", "buy", "clothes", "shirt", "jeans", "shoes", "amazon", "flipkart", "mall", "dress", "watch", "bag", "makeup", "cosmetics", "beauty product"]],
     ["entertainment", ["movie", "cinema", "netflix", "prime", "spotify", "game", "concert", "party", "entertainment", "subscription"]],
     ["bills", ["bill", "bills", "electricity", "wifi", "internet", "rent", "water", "gas", "recharge", "utility", "mobile"]],
-    ["health", ["doctor", "medicine", "hospital", "clinic", "pharmacy", "health", "medical"]],
+    ["health", ["doctor", "medicine", "hospital", "clinic", "pharmacy", "health", "medical", "skincare", "skin care", "sunscreen", "moisturizer", "face wash"]],
     ["education", ["book", "books", "course", "tuition", "class", "college", "school", "stationery", "stationary", "pen", "notebook", "education"]]
   ];
 
   for (const [category, keywords] of groups) {
-    if (keywords.some((keyword) => text.includes(keyword))) return category;
+    if (keywords.some(hasKeyword)) return category;
   }
 
   return "other";
@@ -151,7 +157,8 @@ function detectExpenseMode(message) {
   const text = normalizeText(message);
   if (/\bupi\b|gpay|google pay|phonepe|paytm/.test(text)) return "UPI";
   if (/\bcard\b|credit|debit/.test(text)) return "Card";
-  return "Cash";
+  if (/\bcash\b/.test(text)) return "Cash";
+  return "UPI";
 }
 
 function detectIncomeMethod(message) {
@@ -267,7 +274,7 @@ async function createExpense(userId, payload) {
   }
 
   if (!VALID_EXPENSE_MODES.includes(payload.mode)) {
-    payload.mode = "Cash";
+    payload.mode = "UPI";
   }
 
   log("Creating expense in database:", payload);
@@ -395,19 +402,177 @@ async function analyzeSpending(userId, timePeriod = 30, originalMessage = "") {
   };
 }
 
+function isFinancialAdviceIntent(message) {
+  const text = normalizeText(message);
+  return /financial advice|money advice|budget|budgeting|decrease.*spend|reduce.*spend|cut.*spend|save more|saving|savings|where.*save|invest|investment|debt|emergency fund|overspend|spending habit|plan my money|manage money|personal finance/.test(text);
+}
+
+async function getFinanceContext(userId) {
+  const userObjectId = new mongoose.Types.ObjectId(userId);
+  const now = new Date();
+  const startDate = new Date(now);
+  startDate.setDate(now.getDate() - 29);
+  startDate.setHours(0, 0, 0, 0);
+
+  const [user, expenses, incomeAgg, categoryTotals] = await Promise.all([
+    User.findById(userId, "name income balance occupation incomeRange budgets budget_margin").lean(),
+    Expense.find({ user_id: userId, date: { $gte: startDate, $lte: now } })
+      .sort({ date: -1 })
+      .limit(12)
+      .lean(),
+    Income.aggregate([
+      { $match: { user_id: userObjectId, date: { $gte: startDate, $lte: now } } },
+      { $group: { _id: null, total: { $sum: "$amount" } } }
+    ]),
+    Expense.aggregate([
+      { $match: { user_id: userObjectId, date: { $gte: startDate, $lte: now } } },
+      { $group: { _id: "$category", total: { $sum: "$amount" }, count: { $sum: 1 } } },
+      { $sort: { total: -1 } },
+      { $limit: 5 }
+    ])
+  ]);
+
+  const totalSpent = categoryTotals.reduce((sum, item) => sum + item.total, 0);
+  const totalIncome = incomeAgg[0]?.total || 0;
+
+  return {
+    user: user || {},
+    periodLabel: "last 30 days",
+    totalSpent,
+    totalIncome,
+    topCategories: categoryTotals.map((item) => ({
+      category: CATEGORY_LABELS[item._id] || titleCase(item._id || "other"),
+      amount: item.total,
+      count: item.count,
+      percentage: totalSpent ? Math.round((item.total / totalSpent) * 100) : 0
+    })),
+    recentExpenses: expenses.map((expense) => ({
+      amount: expense.amount,
+      category: CATEGORY_LABELS[expense.category] || titleCase(expense.category || "other"),
+      mode: expense.mode,
+      date: expense.date
+    }))
+  };
+}
+
+function buildLocalAdviceReply(message, context = null) {
+  const text = normalizeText(message);
+  const top = context?.topCategories?.[0];
+  const totalSpent = context?.totalSpent || 0;
+  const totalIncome = context?.totalIncome || context?.user?.income || 0;
+
+  if (top) {
+    const categoryKey = Object.entries(CATEGORY_LABELS).find(([, label]) => label === top.category)?.[0] || "other";
+    const tip = SAVINGS_TIPS[categoryKey] || SAVINGS_TIPS.other;
+    const targetCut = Math.max(100, Math.round((top.amount * tip.savingRate) / 100) * 100);
+    const incomeLine = totalIncome
+      ? `You tracked ${formatCurrency(totalSpent)} spending against about ${formatCurrency(totalIncome)} income in this period. `
+      : `You tracked ${formatCurrency(totalSpent)} spending in this period. `;
+
+    return [
+      `${incomeLine}Your biggest category is ${top.category} at ${formatCurrency(top.amount)} (${top.percentage}%).`,
+      `To reduce spending: ${tip.text}`,
+      `Target for this week: cut about ${formatCurrency(targetCut)} from ${top.category}.`,
+      "Move that saved amount to a separate savings balance as soon as income arrives, so it does not get spent later."
+    ].join("\n");
+  }
+
+  if (/invest|investment/.test(text)) {
+    return "Start with basics before investing: keep one month of expenses as a starter emergency fund, avoid high-interest debt, then invest only money you will not need soon. For beginners, low-cost diversified funds are usually safer than picking individual stocks. This is general education, not personalized investment advice.";
+  }
+
+  if (/debt|loan|credit card/.test(text)) {
+    return "For debt, pay minimums on every loan first, then attack the highest-interest balance with any extra money. Avoid adding new debt while doing this, and keep a small emergency buffer so one surprise expense does not force more borrowing.";
+  }
+
+  return [
+    "Here is a simple financial plan you can start today:",
+    "1. Track every expense for 30 days so you know where money is going.",
+    "2. Set weekly caps for food, shopping, entertainment, and other flexible spending.",
+    "3. Use a 24-hour wait before buying non-essential items.",
+    "4. Transfer savings immediately after income arrives, even if the amount is small.",
+    "5. Build an emergency fund before taking bigger investment risks."
+  ].join("\n");
+}
+
+function isUsefulGeminiReply(reply) {
+  if (!reply) return false;
+  const trimmed = reply.trim();
+  if (trimmed.length < 120) return false;
+  if (/^hello\b|^hi\b/i.test(trimmed) && trimmed.length < 220) return false;
+  return true;
+}
+
+async function getGeminiReply(userId, message) {
+  if (!process.env.GEMINI_API_KEY) {
+    warn("Gemini skipped: GEMINI_API_KEY is not configured");
+    return null;
+  }
+
+  const context = await getFinanceContext(userId);
+  const prompt = [
+    "You are the chatbot inside a personal finance tracker for students and first-time earners in India.",
+    "Reply directly to the user's question with practical, clear guidance. Do not start with a greeting or the user's name.",
+    "Use the user's finance context when useful. Do not invent transactions.",
+    "If giving investment or financial advice, keep it educational and avoid guarantees.",
+    "For financial advice, give 4 to 6 actionable bullet points with specific next steps.",
+    "",
+    `User question: ${message}`,
+    "",
+    "Finance context JSON:",
+    JSON.stringify(context, null, 2)
+  ].join("\n");
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  const url = `${GEMINI_API_BASE_URL}/models/${GEMINI_MODEL_NAME}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+
+  log(`Calling Gemini API model=${GEMINI_MODEL_NAME}`);
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    signal: controller.signal,
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: prompt }]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.45,
+        maxOutputTokens: 650
+      }
+    })
+  }).finally(() => clearTimeout(timeout));
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const detail = data?.error?.message || response.statusText || "Gemini API request failed";
+    throw new Error(`Gemini ${GEMINI_MODEL_NAME} failed: ${detail}`);
+  }
+
+  const reply = (data?.candidates?.[0]?.content?.parts || [])
+    .map((part) => part.text || "")
+    .join("")
+    .trim();
+
+  log(`Gemini API answered with ${reply.length} characters`);
+  return reply || null;
+}
+
 async function handleMessage(userId, message) {
   log("Parsing message with guaranteed local parser:", message);
-
-  if (isAnalyzeIntent(message)) {
-    return analyzeSpending(userId, 30, message);
-  }
 
   if (isExpenseIntent(message)) {
     const payload = buildExpensePayload(message);
     await createExpense(userId, payload);
     return {
-      message: `Added ₹${payload.amount} under ${titleCase(payload.category)} using ${payload.mode}.`,
-      action: { type: "ADD_EXPENSE", payload }
+      message: `Added Rs ${payload.amount} under ${titleCase(payload.category)} using ${payload.mode}.`,
+      action: { type: "ADD_EXPENSE", payload },
+      source: "local-parser"
     };
   }
 
@@ -415,8 +580,9 @@ async function handleMessage(userId, message) {
     const payload = buildIncomePayload(message);
     await createIncome(userId, payload);
     return {
-      message: `Logged ₹${payload.amount} income from ${payload.source} to ${payload.paymentMethod}.`,
-      action: { type: "ADD_INCOME", payload }
+      message: `Logged Rs ${payload.amount} income from ${payload.source} to ${payload.paymentMethod}.`,
+      action: { type: "ADD_INCOME", payload },
+      source: "local-parser"
     };
   }
 
@@ -424,13 +590,50 @@ async function handleMessage(userId, message) {
   if (target) {
     return {
       message: target === "/goals" ? "Opening your goals page." : "Opening that page for you.",
-      action: { type: "NAVIGATE", target }
+      action: { type: "NAVIGATE", target },
+      source: "local-parser"
     };
   }
 
+  if (isFinancialAdviceIntent(message)) {
+    let context = null;
+    try {
+      context = await getFinanceContext(userId);
+      const geminiReply = await getGeminiReply(userId, message);
+      if (isUsefulGeminiReply(geminiReply)) {
+        return { message: geminiReply, action: null, source: "gemini", model: GEMINI_MODEL_NAME };
+      }
+    } catch (err) {
+      warn("Gemini reply failed, using local finance fallback:", err.message);
+    }
+
+    try {
+      context = context || await getFinanceContext(userId);
+      return { message: buildLocalAdviceReply(message, context), action: null, source: "local-fallback" };
+    } catch (err) {
+      warn("Finance context fallback failed, using basic fallback:", err.message);
+      return { message: buildLocalAdviceReply(message), action: null, source: "local-fallback" };
+    }
+  }
+
+  if (isAnalyzeIntent(message)) {
+    const analysisReply = await analyzeSpending(userId, 30, message);
+    return { ...analysisReply, source: "local-analysis" };
+  }
+
+  try {
+    const geminiReply = await getGeminiReply(userId, message);
+    if (geminiReply) {
+      return { message: geminiReply, action: null, source: "gemini", model: GEMINI_MODEL_NAME };
+    }
+  } catch (err) {
+    warn("Gemini general reply failed, using basic fallback:", err.message);
+  }
+
   return {
-    message: "I can help with expenses, income, goals, and insights. Try: spent 200 on pizza, received 5000 salary, or show my goals.",
-    action: null
+    message: "I can help with expenses, income, budgets, savings, goals, and spending insights. Try: 'spent 200 on pizza', 'received 5000 salary', 'how can I decrease my spending?', or 'where can I save more?'",
+    action: null,
+    source: "local-fallback"
   };
 }
 
@@ -441,6 +644,7 @@ router.get("/debug", authMiddleware, (req, res) => {
     routeVersion: CHAT_ROUTE_VERSION,
     userId: req.user.id,
     geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
+    geminiModel: GEMINI_MODEL_NAME,
     timestamp: new Date().toISOString()
   });
 });
@@ -490,6 +694,8 @@ router.post("/messages", authMiddleware, async (req, res) => {
       reply: {
         message: reply.message,
         action: reply.action,
+        source: reply.source || "unknown",
+        model: reply.model || null,
         timestamp: botMsg.timestamp
       },
       debug: {
