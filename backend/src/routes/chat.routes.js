@@ -122,11 +122,18 @@ function formatPercent(value) {
 
 function extractAmount(message) {
   const normalized = normalizeText(message);
-  const match = normalized.match(/(?:rs\.?|rupees?|inr)?\s*(\d+(?:\.\d{1,2})?)/i);
-  if (!match) return null;
-
-  const amount = Number(match[1]);
-  return Number.isFinite(amount) && amount > 0 ? amount : null;
+  const contextMatch = normalized.match(/(?:rs\.?|rupees?|inr|₹)\s*(\d+(?:\.\d{1,2})?)|(\d+(?:\.\d{1,2})?)\s*(?:rs\.?|rupees?|inr|₹)/i);
+  if (contextMatch) {
+    const amount = Number(contextMatch[1] || contextMatch[2]);
+    return Number.isFinite(amount) && amount > 0 ? amount : null;
+  }
+  
+  const fallbackMatch = normalized.match(/\b(\d+(?:\.\d{1,2})?)\b/);
+  if (fallbackMatch) {
+    const amount = Number(fallbackMatch[1]);
+    return Number.isFinite(amount) && amount > 0 ? amount : null;
+  }
+  return null;
 }
 
 function detectExpenseCategory(message) {
@@ -181,19 +188,62 @@ function detectIncomeSource(message) {
   return match ? titleCase(match[1]) : "Income";
 }
 
-function isExpenseIntent(message) {
+function detectIntent(message) {
   const text = normalizeText(message);
-  return /\b(spent|spend|paid|pay|bought|buy|ordered|expense|cost|costed)\b/.test(text) && extractAmount(message);
-}
+  let intent = "UNKNOWN";
+  let confidence = 0.0;
+  
+  const isQuestion = /\b(how|what|why|should|can|could|would|will|tips?|advice)\b|\?/.test(text);
+  const questionPenalty = isQuestion ? 0.4 : 0.0;
+  const amount = extractAmount(message);
+  const hasAmount = amount !== null;
 
-function isIncomeIntent(message) {
-  const text = normalizeText(message);
-  return /\b(received|got|earned|income|salary|credited|deposit|deposited|bonus|gift)\b/.test(text) && extractAmount(message);
-}
+  // 1. ADD_EXPENSE
+  const expenseMatch = text.match(/\b(spent|spend|paid|pay|bought|buy|ordered|expense|cost|costed)\b/);
+  if (expenseMatch && hasAmount) {
+    let score = 0.8;
+    if (/\b(on|for)\b/.test(text)) score += 0.1;
+    if (/rs|rupees|inr|₹/.test(text)) score += 0.1;
+    score -= questionPenalty;
+    if (score > confidence) { confidence = score; intent = "ADD_EXPENSE"; }
+  }
 
-function isAnalyzeIntent(message) {
-  const text = normalizeText(message);
-  return /where.*spend|where.*spent|spend most|spent most|top.*categor|breakdown|analy[sz]e|save more|saving advice|savings advice|spending pattern|spending patterns|insight|insights|how.*save/.test(text);
+  // 2. ADD_INCOME
+  const incomeMatch = text.match(/\b(received|got|earned|income|salary|credited|deposit|deposited|bonus|gift)\b/);
+  if (incomeMatch && hasAmount) {
+    let score = 0.8;
+    if (/rs|rupees|inr|₹/.test(text)) score += 0.1;
+    score -= questionPenalty;
+    if (/\b(spent|paid|bought|expense|cost)\b/.test(text)) score -= 0.5; // Strict separation
+    if (score > confidence) { confidence = score; intent = "ADD_INCOME"; }
+  }
+
+  // 3. ANALYZE
+  const analyzeMatch = text.match(/where.*spend|where.*spent|spend most|spent most|top.*categor|breakdown|analy[sz]e|spending pattern|spending patterns|insight|insights/);
+  if (analyzeMatch) {
+    let score = 0.85;
+    if (isQuestion) score += 0.1; // Questions expected for analysis
+    if (score > confidence) { confidence = score; intent = "ANALYZE"; }
+  }
+
+  // 4. FINANCIAL_ADVICE
+  const adviceMatch = text.match(/financial advice|money advice|budget|budgeting|decrease.*spend|reduce.*spend|cut.*spend|save more|saving|savings|where.*save|invest|investment|debt|emergency fund|overspend|spending habit|plan my money|manage money|personal finance|saving advice|savings advice|how.*save/);
+  if (adviceMatch) {
+    let score = 0.6; // Keep it low to prefer Gemini
+    if (isQuestion) score -= 0.1;
+    if (score > confidence) { confidence = score; intent = "FINANCIAL_ADVICE"; }
+  }
+
+  // 5. NAVIGATE
+  const navTarget = detectNavigationTarget(message);
+  if (navTarget) {
+    let score = 0.8;
+    if (text.length < 30) score += 0.1;
+    score -= questionPenalty * 0.5;
+    if (score > confidence) { confidence = score; intent = "NAVIGATE"; }
+  }
+
+  return { intent, confidence, amount };
 }
 
 function detectAnalysisPeriod(message) {
@@ -402,10 +452,7 @@ async function analyzeSpending(userId, timePeriod = 30, originalMessage = "") {
   };
 }
 
-function isFinancialAdviceIntent(message) {
-  const text = normalizeText(message);
-  return /financial advice|money advice|budget|budgeting|decrease.*spend|reduce.*spend|cut.*spend|save more|saving|savings|where.*save|invest|investment|debt|emergency fund|overspend|spending habit|plan my money|manage money|personal finance/.test(text);
-}
+// FINANCIAL_ADVICE intent logic is handled in detectIntent function.
 
 async function getFinanceContext(userId) {
   const userObjectId = new mongoose.Types.ObjectId(userId);
@@ -566,68 +613,74 @@ async function getGeminiReply(userId, message) {
 async function handleMessage(userId, message) {
   log("Parsing message with guaranteed local parser:", message);
 
-  if (isExpenseIntent(message)) {
-    const payload = buildExpensePayload(message);
-    await createExpense(userId, payload);
-    return {
-      message: `Added Rs ${payload.amount} under ${titleCase(payload.category)} using ${payload.mode}.`,
-      action: { type: "ADD_EXPENSE", payload },
-      source: "local-parser"
-    };
-  }
+  const { intent, confidence, amount } = detectIntent(message);
+  log(`[INTENT] Detected: ${intent} | Confidence: ${confidence.toFixed(2)}`);
 
-  if (isIncomeIntent(message)) {
-    const payload = buildIncomePayload(message);
-    await createIncome(userId, payload);
-    return {
-      message: `Logged Rs ${payload.amount} income from ${payload.source} to ${payload.paymentMethod}.`,
-      action: { type: "ADD_INCOME", payload },
-      source: "local-parser"
-    };
-  }
+  const CONFIDENCE_THRESHOLD = 0.7;
 
-  const target = detectNavigationTarget(message);
-  if (target) {
-    return {
-      message: target === "/goals" ? "Opening your goals page." : "Opening that page for you.",
-      action: { type: "NAVIGATE", target },
-      source: "local-parser"
-    };
-  }
-
-  if (isFinancialAdviceIntent(message)) {
-    let context = null;
-    try {
-      context = await getFinanceContext(userId);
-      const geminiReply = await getGeminiReply(userId, message);
-      if (isUsefulGeminiReply(geminiReply)) {
-        return { message: geminiReply, action: null, source: "gemini", model: GEMINI_MODEL_NAME };
-      }
-    } catch (err) {
-      warn("Gemini reply failed, using local finance fallback:", err.message);
+  if (confidence >= CONFIDENCE_THRESHOLD) {
+    if (intent === "ADD_EXPENSE") {
+      const payload = buildExpensePayload(message);
+      payload.amount = amount || payload.amount;
+      await createExpense(userId, payload);
+      return {
+        message: `Added Rs ${payload.amount} under ${titleCase(payload.category)} using ${payload.mode}.`,
+        action: { type: "ADD_EXPENSE", payload },
+        source: "local-parser"
+      };
     }
 
+    if (intent === "ADD_INCOME") {
+      const payload = buildIncomePayload(message);
+      payload.amount = amount || payload.amount;
+      await createIncome(userId, payload);
+      return {
+        message: `Logged Rs ${payload.amount} income from ${payload.source} to ${payload.paymentMethod}.`,
+        action: { type: "ADD_INCOME", payload },
+        source: "local-parser"
+      };
+    }
+
+    if (intent === "NAVIGATE") {
+      const target = detectNavigationTarget(message);
+      return {
+        message: target === "/goals" ? "Opening your goals page." : "Opening that page for you.",
+        action: { type: "NAVIGATE", target },
+        source: "local-parser"
+      };
+    }
+
+    if (intent === "ANALYZE") {
+      const analysisReply = await analyzeSpending(userId, 30, message);
+      return { ...analysisReply, source: "local-analysis" };
+    }
+  }
+
+  log(`Falling back to Gemini API... (Intent: ${intent}, Confidence: ${confidence.toFixed(2)})`);
+
+  try {
+    let context = null;
+    if (intent === "FINANCIAL_ADVICE" || intent === "ANALYZE" || confidence < CONFIDENCE_THRESHOLD) {
+      context = await getFinanceContext(userId);
+    }
+    
+    const geminiReply = await getGeminiReply(userId, message);
+    if (geminiReply && isUsefulGeminiReply(geminiReply)) {
+      return { message: geminiReply, action: null, source: "gemini", model: GEMINI_MODEL_NAME };
+    }
+  } catch (err) {
+    warn("Gemini reply failed:", err.message);
+  }
+
+  // Ultimate local fallback
+  if (intent === "FINANCIAL_ADVICE" || message.toLowerCase().includes("advice")) {
     try {
-      context = context || await getFinanceContext(userId);
+      const context = await getFinanceContext(userId);
       return { message: buildLocalAdviceReply(message, context), action: null, source: "local-fallback" };
     } catch (err) {
       warn("Finance context fallback failed, using basic fallback:", err.message);
       return { message: buildLocalAdviceReply(message), action: null, source: "local-fallback" };
     }
-  }
-
-  if (isAnalyzeIntent(message)) {
-    const analysisReply = await analyzeSpending(userId, 30, message);
-    return { ...analysisReply, source: "local-analysis" };
-  }
-
-  try {
-    const geminiReply = await getGeminiReply(userId, message);
-    if (geminiReply) {
-      return { message: geminiReply, action: null, source: "gemini", model: GEMINI_MODEL_NAME };
-    }
-  } catch (err) {
-    warn("Gemini general reply failed, using basic fallback:", err.message);
   }
 
   return {
